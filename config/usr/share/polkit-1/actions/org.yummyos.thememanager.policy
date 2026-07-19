@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>YummyOS</vendor>
+  <vendor_url>https://yummyos.org</vendor_url>
+
+  <action id="org.yummyos.thememanager.apply-theme">
+    <description>Apply system theme and appearance settings</description>
+    <message>Authentication is required to apply theme changes</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.imply">org.yummyos.thememanager.apply-accent-color</annotate>
+  </action>
+
+  <action id="org.yummyos.thememanager.apply-accent-color">
+    <description>Apply system accent color</description>
+    <message>Authentication is required to change the accent color</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.imply">org.yummyos.thememanager.read-config</annotate>
+  </action>
+
+  <action id="org.yummyos.thememanager.apply-cursor-theme">
+    <description>Apply system cursor theme</description>
+    <message>Authentication is required to change the cursor theme</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.yummyos.thememanager.apply-icon-theme">
+    <description>Apply system icon theme</description>
+    <message>Authentication is required to change the icon theme</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.yummyos.thememanager.read-config">
+    <description>Read YummyOS theme configuration</description>
+    <message>Authentication is required to read theme configuration</message>
+    <defaults>
+      <allow_any>yes</allow_any>
+      <allow_inactive>yes</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.yummyos.thememanager.write-config">
+    <description>Write YummyOS theme configuration</description>
+    <message>Authentication is required to modify theme configuration</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.yummyos.thememanager.install-global-theme">
+    <description>Install a global theme system-wide</description>
+    <message>Administrative privileges are required to install themes system-wide</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+</policyconfig>

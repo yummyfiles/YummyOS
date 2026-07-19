@@ -1,0 +1,358 @@
+#!/usr/bin/env bash
+#
+# yummy-backup - YummyOS Backup Utility
+# Backup and restore home directory contents using rsync.
+#
+
+set -euo pipefail
+
+readonly VERSION="1.0.0"
+readonly LOG_TAG="yummy-backup"
+readonly DEFAULT_EXCLUSIONS=(
+    ".cache"
+    ".local/share/Trash"
+    ".thumbnails"
+    ".mozilla/firefox/*/Cache*"
+    ".mozilla/firefox/*/OfflineCache"
+    ".config/chromium/Default/Cache*"
+    ".config/google-chrome/Default/Cache*"
+    ".local/share/Recently-Saved"
+    ".local/share/baloo"
+    ".local/share/kwalletd"
+    "*.swp"
+    "*.swo"
+    "*~"
+    ".Xauthority"
+    ".ICEauthority"
+    "snap"
+    ".snap"
+)
+
+log() {
+    logger -t "${LOG_TAG}" "$1" 2>/dev/null || true
+}
+
+die() {
+    log "ERROR: $1" >&2
+    echo "ERROR: $1" >&2
+    exit 1
+}
+
+usage() {
+    cat <<EOF
+yummy-backup ${VERSION} - YummyOS Backup Utility
+
+Usage:
+    yummy-backup create <destination>                Create a backup to destination
+    yummy-backup restore <source>                    Restore from a backup source
+    yummy-backup list <backup-location>              List backups at a location
+    yummy-backup --help                              Show this help message
+    yummy-backup --version                           Show version
+
+Options for create:
+    --exclude <pattern>    Add a custom exclusion pattern (can be repeated)
+    --include-hidden       Include hidden files and directories
+    --no-home              Do not backup home directory
+    --hostname-backup      Create a hostname-prefixed backup directory
+
+Examples:
+    yummy-backup create /mnt/backup
+    yummy-backup create /mnt/backup --exclude "*.log"
+    yummy-backup restore /mnt/backup/yummy-backup-20240101-120000
+    yummy-backup list /mnt/backup
+
+EOF
+    exit 0
+}
+
+get_hostname() {
+    hostname -s 2>/dev/null || echo "unknown"
+}
+
+get_timestamp() {
+    date '+%Y%m%d-%H%M%S'
+}
+
+build_exclusion_args() {
+    local extra_exclusions=("${@}")
+    local args=()
+
+    for pattern in "${DEFAULT_EXCLUSIONS[@]}"; do
+        args+=("--exclude=${pattern}")
+    done
+
+    for pattern in "${extra_exclusions[@]}"; do
+        args+=("--exclude=${pattern}")
+    done
+
+    echo "${args[@]}"
+}
+
+validate_destination() {
+    local dest="$1"
+
+    if [[ ! -d "${dest}" ]]; then
+        echo "Destination does not exist: ${dest}"
+        echo "Attempting to create it..."
+        mkdir -p "${dest}" 2>/dev/null || {
+            die "Cannot create destination directory: ${dest}. Check permissions."
+        }
+    fi
+
+    # Check write permissions
+    if [[ ! -w "${dest}" ]]; then
+        die "No write permission for destination: ${dest}"
+    fi
+
+    # Check available space
+    local dest_avail
+    dest_avail=$(df --output=avail "${dest}" 2>/dev/null | tail -1 | tr -d ' ')
+    local home_size
+    home_size=$(du -sb "${HOME}" 2>/dev/null | cut -f1 || echo "0")
+
+    if [[ -n "${dest_avail}" ]] && [[ -n "${home_size}" ]] && [[ ${dest_avail} -lt ${home_size} ]]; then
+        echo "WARNING: Destination may not have enough space."
+        echo "  Available: $((dest_avail / 1024 / 1024))MB"
+        echo "  Home directory: $((home_size / 1024 / 1024))MB"
+        echo ""
+        read -r -p "Continue anyway? [y/N] " confirm
+        if [[ "${confirm}" != "y" && "${confirm}" != "Y" ]]; then
+            echo "Backup cancelled."
+            exit 0
+        fi
+    fi
+}
+
+cmd_create() {
+    local destination="${1:-}"
+    shift || true
+
+    if [[ -z "${destination}" ]]; then
+        die "No destination specified. Use 'yummy-backup create <destination>'."
+    fi
+
+    # Parse additional options
+    local extra_exclusions=()
+    local include_hidden=false
+    local hostname_backup=false
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --exclude)
+                shift
+                extra_exclusions+=("${1:-}")
+                shift
+                ;;
+            --include-hidden)
+                include_hidden=true
+                shift
+                ;;
+            --hostname-backup)
+                hostname_backup=true
+                shift
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+
+    echo "=== YummyOS Backup ==="
+    echo "Source:  ${HOME}"
+    echo "Dest:    ${destination}"
+    echo ""
+
+    validate_destination "${destination}"
+
+    local backup_name="yummy-backup-$(get_timestamp)"
+    if [[ "${hostname_backup}" == "true" ]]; then
+        backup_name="$(get_hostname)-${backup_name}"
+    fi
+
+    local backup_dir="${destination}/${backup_name}"
+
+    echo "Creating backup: ${backup_name}"
+    echo ""
+
+    log "Starting backup to ${backup_dir}"
+
+    # Build rsync command
+    local rsync_args=(
+        -aAXv
+        --delete
+        --info=progress2
+    )
+
+    if [[ "${include_hidden}" == "false" ]]; then
+        rsync_args+=(--exclude='.*')
+    fi
+
+    # Add exclusion patterns
+    while IFS= read -r arg; do
+        rsync_args+=("${arg}")
+    done < <(build_exclusion_args "${extra_exclusions[@]}")
+
+    # Add trailing slash to source to copy contents
+    rsync_args+=("${HOME}/")
+    rsync_args+=("${backup_dir}/")
+
+    # Create metadata file
+    mkdir -p "${backup_dir}"
+    cat > "${backup_dir}/.backup-meta.txt" <<META
+YummyOS Backup Metadata
+=======================
+Timestamp:    $(date -Iseconds)
+Hostname:     $(get_hostname)
+Username:     $(whoami)
+Source:       ${HOME}
+Profile:      yummy-backup v${VERSION}
+Exclusions:   ${DEFAULT_EXCLUSIONS[*]} ${extra_exclusions[*]:-}
+META
+
+    log "Running rsync with args: ${rsync_args[*]}"
+
+    # Run rsync
+    if rsync "${rsync_args[@]}"; then
+        echo ""
+        echo "Backup completed successfully!"
+        echo "Location: ${backup_dir}"
+        echo ""
+
+        # Show backup size
+        local backup_size
+        backup_size=$(du -sh "${backup_dir}" 2>/dev/null | cut -f1 || echo "unknown")
+        echo "Backup size: ${backup_size}"
+        log "Backup completed: ${backup_dir} (${backup_size})"
+    else
+        die "rsync failed with exit code $?"
+    fi
+}
+
+cmd_restore() {
+    local source="${1:-}"
+
+    if [[ -z "${source}" ]]; then
+        die "No source specified. Use 'yummy-backup restore <source>'."
+    fi
+
+    if [[ ! -d "${source}" ]]; then
+        die "Source directory does not exist: ${source}"
+    fi
+
+    # Check for metadata
+    if [[ -f "${source}/.backup-meta.txt" ]]; then
+        echo "=== Backup Metadata ==="
+        cat "${source}/.backup-meta.txt"
+        echo ""
+    fi
+
+    echo "=== YummyOS Backup Restore ==="
+    echo "Source:  ${source}"
+    echo "Dest:    ${HOME}"
+    echo ""
+
+    # Safety prompt
+    echo "WARNING: This will overwrite files in your home directory."
+    echo "         Existing files not in the backup will NOT be deleted."
+    echo ""
+    read -r -p "Are you sure you want to restore? [y/N] " confirm
+    if [[ "${confirm}" != "y" && "${confirm}" != "Y" ]]; then
+        echo "Restore cancelled."
+        exit 0
+    fi
+
+    log "Starting restore from ${source}"
+
+    # Build rsync command for restore
+    local rsync_args=(
+        -aAXv
+        --info=progress2
+        --exclude='.backup-meta.txt'
+    )
+
+    rsync_args+=("${source}/")
+    rsync_args+=("${HOME}/")
+
+    echo "Restoring files..."
+
+    if rsync "${rsync_args[@]}"; then
+        echo ""
+        echo "Restore completed successfully!"
+        log "Restore completed from ${source}"
+    else
+        die "rsync restore failed with exit code $?"
+    fi
+}
+
+cmd_list() {
+    local location="${1:-}"
+
+    if [[ -z "${location}" ]]; then
+        die "No backup location specified. Use 'yummy-backup list <location>'."
+    fi
+
+    if [[ ! -d "${location}" ]]; then
+        die "Backup location does not exist: ${location}"
+    fi
+
+    echo "=== Backups at ${location} ==="
+    echo ""
+
+    local count=0
+    for dir in "${location}"/yummy-backup-* "${location}"/"$(get_hostname)"-yummy-backup-*; do
+        if [[ -d "${dir}" ]]; then
+            local dir_name
+            dir_name=$(basename "${dir}")
+            local dir_size
+            dir_size=$(du -sh "${dir}" 2>/dev/null | cut -f1 || echo "unknown")
+
+            # Try to read timestamp from metadata
+            local backup_date="unknown"
+            if [[ -f "${dir}/.backup-meta.txt" ]]; then
+                backup_date=$(grep "^Timestamp:" "${dir}/.backup-meta.txt" 2>/dev/null | cut -d: -f2- | xargs || echo "unknown")
+            fi
+
+            printf "  %-45s  %8s  %s\n" "${dir_name}" "${dir_size}" "${backup_date}"
+            count=$((count + 1))
+        fi
+    done
+
+    if [[ ${count} -eq 0 ]]; then
+        echo "  No backups found."
+    else
+        echo ""
+        echo "  Total: ${count} backup(s)"
+    fi
+}
+
+main() {
+    local cmd="${1:-}"
+    shift || true
+
+    case "${cmd}" in
+        create)
+            cmd_create "$@"
+            ;;
+        restore)
+            cmd_restore "$@"
+            ;;
+        list)
+            cmd_list "$@"
+            ;;
+        --help|-h)
+            usage
+            ;;
+        --version|-v)
+            echo "yummy-backup ${VERSION}"
+            exit 0
+            ;;
+        "")
+            usage
+            ;;
+        *)
+            die "Unknown command '${cmd}'. Run 'yummy-backup --help' for usage."
+            ;;
+    esac
+}
+
+main "$@"

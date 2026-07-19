@@ -1,0 +1,73 @@
+[Default Applications]
+# Web
+x-scheme-handler/http=firefox.desktop
+x-scheme-handler/https=firefox.desktop
+x-scheme-handler/about=firefox.desktop
+text/html=firefox.desktop
+application/xhtml+xml=firefox.desktop
+
+# Mail
+x-scheme-handler/mailto=org.kde.kontact.desktop
+
+# Video
+video/mp4=vlc.desktop
+video/x-matroska=vlc.desktop
+video/x-msvideo=vlc.desktop
+video/quicktime=vlc.desktop
+video/x-flv=vlc.desktop
+video/webm=vlc.desktop
+video/ogg=vlc.desktop
+video/mpeg=vlc.desktop
+
+# Audio
+audio/mpeg=vlc.desktop
+audio/ogg=vlc.desktop
+audio/flac=vlc.desktop
+audio/x-wav=vlc.desktop
+audio/mp4=vlc.desktop
+audio/aac=vlc.desktop
+
+# Images
+image/png=org.gnome.eog.desktop
+image/jpeg=org.gnome.eog.desktop
+image/gif=org.gnome.eog.desktop
+image/svg+xml=org.gnome.eog.desktop
+image/webp=org.gnome.eog.desktop
+image/tiff=org.gnome.eog.desktop
+
+# PDF
+application/pdf=org.kde.okular.desktop
+
+# Documents
+application/vnd.oasis.opendocument.text=org.kde.calligra.kword.desktop
+application/msword=org.kde.calligra.kword.desktop
+application/vnd.openxmlformats-officedocument.wordprocessingml.document=org.kde.calligra.kword.desktop
+
+# Spreadsheets
+application/vnd.oasis.opendocument.spreadsheet=org.kde.calligra.kcells.desktop
+application/vnd.ms-excel=org.kde.calligra.kcells.desktop
+application/vnd.openxmlformats-officedocument.spreadsheetml.sheet=org.kde.calligra.kcells.desktop
+
+# Presentations
+application/vnd.oasis.opendocument.presentation=org.kde.calligra.kpresenter.desktop
+application/vnd.ms-powerpoint=org.kde.calligra.kpresenter.desktop
+application/vnd.openxmlformats-officedocument.presentationml.presentation=org.kde.calligra.kpresenter.desktop
+
+# Archives
+application/zip=org.kde.ark.desktop
+application/x-7z-compressed=org.kde.ark.desktop
+application/x-rar=org.kde.ark.desktop
+application/x-tar=org.kde.ark.desktop
+application/gzip=org.kde.ark.desktop
+application/x-xz=org.kde.ark.desktop
+
+# Text editor
+text/plain=org.kde.kate.desktop
+
+# Terminal
+x-scheme-handler/terminal=org.kde.konsole.desktop
+
+# File manager
+inode/directory=org.kde.dolphin.desktop
+
+[Added Associations]

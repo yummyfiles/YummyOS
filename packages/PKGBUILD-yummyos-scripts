@@ -1,0 +1,99 @@
+# Maintainer: YummyOS Team <team@yummyos.org>
+pkgname=yummyos-scripts
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="YummyOS Utility Scripts - Performance profiles, backup, telemetry, theme management, and system utilities"
+arch=('any')
+url="https://yummyos.org"
+license=('GPL-3.0-or-later')
+depends=(
+    'bash'
+    'polkit'
+    'kconfig'
+    'plasma-workspace'
+    'yummyos-branding'
+)
+makedepends=()
+optdepends=(
+    'yummy-control-center: GUI for managing performance profiles and themes'
+    'cpupower: CPU frequency scaling backend for performance profiles'
+    'tlp: Battery optimization backend for powersave profile'
+    'powertop: Power analysis tool'
+)
+provides=(
+    'yummy-performance'
+    'yummy-backup'
+    'yummy-telemetry-check'
+    'yummy-theme-apply'
+    'yummy-about'
+)
+conflicts=('yummyos-scripts-git')
+backup=(
+    'etc/yummyos/yummyos.conf'
+)
+source=("${url}/releases/${pkgname}-${pkgver}.tar.xz")
+sha256sums=('SKIP')
+
+package() {
+    cd "${srcdir}/${pkgname}-${pkgver}" || cd "${srcdir}"
+
+    # --- Core Scripts ---
+    install -Dm755 usr/bin/yummy-performance \
+        "${pkgdir}/usr/bin/yummy-performance"
+    install -Dm755 usr/bin/yummy-backup \
+        "${pkgdir}/usr/bin/yummy-backup"
+    install -Dm755 usr/bin/yummy-telemetry-check \
+        "${pkgdir}/usr/bin/yummy-telemetry-check"
+    install -Dm755 usr/bin/yummy-theme-apply \
+        "${pkgdir}/usr/bin/yummy-theme-apply"
+    install -Dm755 usr/bin/yummy-about \
+        "${pkgdir}/usr/bin/yummy-about"
+
+    # --- PolicyKit Policies ---
+    install -Dm644 polkit/org.yummyos.thememanager.policy \
+        "${pkgdir}/usr/share/polkit-1/actions/org.yummyos.thememanager.policy"
+    install -Dm644 polkit/org.yummyos.performance.policy \
+        "${pkgdir}/usr/share/polkit-1/actions/org.yummyos.performance.policy" 2>/dev/null || true
+
+    # --- PolicyKit Rules ---
+    install -Dm644 polkit/10-yummyos.rules \
+        "${pkgdir}/etc/polkit-1/rules.d/10-yummyos.rules" 2>/dev/null || true
+
+    # --- Systemd Units (optional) ---
+    install -Dm644 systemd/yummyos-performance.target \
+        "${pkgdir}/usr/lib/systemd/system/yummyos-performance.target" 2>/dev/null || true
+    install -Dm644 systemd/yummyos-backup.timer \
+        "${pkgdir}/usr/lib/systemd/system/yummyos-backup.timer" 2>/dev/null || true
+    install -Dm644 systemd/yummyos-backup.service \
+        "${pkgdir}/usr/lib/systemd/system/yummyos-backup.service" 2>/dev/null || true
+
+    # --- Default Configuration ---
+    install -Dm644 config/yummyos.conf \
+        "${pkgdir}/etc/yummyos/yummyos.conf"
+
+    # --- Man Pages ---
+    install -Dm644 man/yummy-performance.1 \
+        "${pkgdir}/usr/share/man/man1/yummy-performance.1" 2>/dev/null || true
+    install -Dm644 man/yummy-backup.1 \
+        "${pkgdir}/usr/share/man/man1/yummy-backup.1" 2>/dev/null || true
+    install -Dm644 man/yummy-theme-apply.1 \
+        "${pkgdir}/usr/share/man/man1/yummy-theme-apply.1" 2>/dev/null || true
+    install -Dm644 man/yummy-telemetry-check.1 \
+        "${pkgdir}/usr/share/man/man1/yummy-telemetry-check.1" 2>/dev/null || true
+    install -Dm644 man/yummy-about.1 \
+        "${pkgdir}/usr/share/man/man1/yummy-about.1" 2>/dev/null || true
+
+    # --- Shell Completions ---
+    install -Dm644 completions/bash/yummy-performance \
+        "${pkgdir}/usr/share/bash-completion/completions/yummy-performance" 2>/dev/null || true
+    install -Dm644 completions/bash/yummy-backup \
+        "${pkgdir}/usr/share/bash-completion/completions/yummy-backup" 2>/dev/null || true
+    install -Dm644 completions/zsh/_yummy-performance \
+        "${pkgdir}/usr/share/zsh/site-functions/_yummy-performance" 2>/dev/null || true
+    install -Dm644 completions/zsh/_yummy-backup \
+        "${pkgdir}/usr/share/zsh/site-functions/_yummy-backup" 2>/dev/null || true
+
+    # --- Desktop Entries ---
+    install -Dm644 desktop/yummy-backup.desktop \
+        "${pkgdir}/usr/share/applications/yummy-backup.desktop" 2>/dev/null || true
+}

@@ -1,0 +1,56 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.md]
+trim_trailing_whitespace = false
+indent_size = 2
+
+[*.{cpp,h,hpp}]
+indent_size = 4
+indent_style = space
+
+[*.{qml,js,ts}]
+indent_size = 2
+indent_style = space
+
+[*.{yml,yaml}]
+indent_size = 2
+indent_style = space
+
+[CMakeLists.txt]
+indent_size = 4
+indent_style = space
+
+[*.{cmake}]
+indent_size = 4
+indent_style = space
+
+[*.{sh,bash}]
+indent_size = 4
+indent_style = space
+
+[*.{xml,conf,ini,cfg}]
+indent_size = 2
+indent_style = space
+
+[Makefile]
+indent_style = tab
+
+[Dockerfile]
+indent_size = 4
+indent_style = space
+
+[*.json]
+indent_size = 2
+indent_style = space
+
+[*.jsonc]
+indent_size = 2
+indent_style = space

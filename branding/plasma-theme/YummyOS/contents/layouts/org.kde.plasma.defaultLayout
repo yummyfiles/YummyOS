@@ -1,0 +1,83 @@
+{
+    "org.kde.plasma.panel": {
+        "screen": 0,
+        "location": "bottom",
+        "height": 52,
+        "thickness": 52,
+        "items": [
+            {
+                "plugin": "org.kde.plasma.kickoff",
+                "config": {
+                    "general": {
+                        "icon": "start-here"
+                    }
+                }
+            },
+            {
+                "plugin": "org.kde.plasma.icontasks"
+            },
+            {
+                "plugin": "org.kde.plasma.systemtray"
+            },
+            {
+                "plugin": "org.kde.plasma.digitalclock",
+                "config": {
+                    "appearance": {
+                        "showDate": true,
+                        "dateFormat": "ddd MMM d",
+                        "showSeconds": false,
+                        "use24h": true
+                    }
+                }
+            },
+            {
+                "plugin": "org.kde.plasma.showdesktop"
+            }
+        ],
+        "config": {
+            "General": {
+                "panelVisibility": 0,
+                "length": 100
+            },
+            "Applets": {
+                "org.kde.plasma.icontasks": {
+                    "config": {
+                        "General": {
+                            "launchers": [
+                                "applications:org.kde.dolphin.desktop",
+                                "applications:org.kde.konsole.desktop",
+                                "applications:firefox.desktop",
+                                "applications:org.kde.discover.desktop"
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "org.kde.plasma.kickoff": {
+        "config": {
+            "General": {
+                "icon": "start-here",
+                "sortAppsByName": true
+            }
+        }
+    },
+    "org.kde.plasma.systemtray": {
+        "config": {
+            "General": {
+                "autoSize": true
+            }
+        }
+    },
+    "org.kde.plasma.digitalclock": {
+        "config": {
+            "appearance": {
+                "showDate": true,
+                "dateFormat": "ddd MMM d",
+                "showSeconds": false,
+                "use24h": true
+            }
+        }
+    }
+}

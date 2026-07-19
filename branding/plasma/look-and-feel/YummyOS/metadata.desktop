@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=YummyOS
+Comment=Default YummyOS look and feel
+X-KDE-PluginInfo-Author=YummyOS Team
+X-KDE-PluginInfo-Email=team@yummyos.org
+X-KDE-PluginInfo-Version=1.0
+X-KDE-PluginInfo-Category=Plasma/LookAndFeel
+X-KDE-PluginInfo-License=GPL-3.0-or-later
+X-KDE-PluginInfo-Name=YummyOS
+X-KDE-PluginInfo-Depends=plasma-desktop,kwin
+X-Plasma-APIVersion=1.0
+X-Plasma-MainScript=defaults

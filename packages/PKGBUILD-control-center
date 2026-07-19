@@ -1,0 +1,49 @@
+# Maintainer: YummyOS Team <team@yummyos.org>
+pkgname=yummy-control-center
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="YummyOS Control Center - Central settings and configuration application"
+arch=('x86_64' 'aarch64')
+url="https://yummyos.org"
+license=('GPL-3.0-or-later')
+depends=(
+    'qt6-base'
+    'qt6-declarative'
+    'plasma-framework'
+    'plasma-workspace'
+    'kconfig'
+    'kcmutils'
+    'ki18n'
+    'kiconthemes'
+    'ksvg'
+    'libplasma'
+    'yummyos-branding'
+    'yummyos-scripts'
+)
+makedepends=(
+    'cmake'
+    'extra-cmake-modules'
+    'qt6-tools'
+    'pkg-config'
+)
+optdepends=(
+    'yummy-telemetry-check: Run system telemetry reports from Control Center'
+)
+provides=('yummy-control-center')
+conflicts=('yummy-control-center-git')
+source=("${url}/releases/${pkgname}-${pkgver}.tar.xz")
+sha256sums=('SKIP')
+
+build() {
+    cd "${srcdir}/${pkgname}-${pkgver}" || cd "${srcdir}"
+    cmake -B build -S . \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DKDE_INSTALL_USE_QT_SYS_PATHS=ON
+    cmake --build build
+}
+
+package() {
+    cd "${srcdir}/${pkgname}-${pkgver}" || cd "${srcdir}"
+    DESTDIR="${pkgdir}" cmake --install build
+}

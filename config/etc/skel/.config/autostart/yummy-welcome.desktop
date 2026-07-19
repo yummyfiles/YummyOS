@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=YummyOS Welcome
+Comment=Welcome to YummyOS!
+Exec=/usr/local/bin/yummy-welcome
+Icon=yummyos-logo
+Terminal=false
+StartupNotify=true
+X-GNOME-Autostart-enabled=true
+X-KDE-autostart-after-phase=1

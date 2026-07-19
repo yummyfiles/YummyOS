@@ -1,0 +1,84 @@
+plash_start() {
+    # Dark background
+    WindowSet_BACKGROUND_COLOR(0, 0.039, 0.039, 0.102);
+
+    # Logo text — centered, large, accent color
+    logo = Image_Text("YummyOS", 0.298, 0.788, 0.941);
+    logo_x = Window_Get_X() / 2 - Image_Get_Width(logo) / 2;
+    logo_y = Window_Get_Y() / 2 - Image_Get_Height(logo) / 2 - 40;
+
+    # "Loading..." text
+    loading = Image_Text("Loading...", 0.298, 0.788, 0.941);
+    loading_x = Window_Get_X() / 2 - Image_Get_Width(loading) / 2;
+    loading_y = logo_y + Image_Get_Height(logo) + 30;
+
+    # Progress bar dimensions
+    bar_width = 400;
+    bar_height = 8;
+    bar_x = Window_Get_X() / 2 - bar_width / 2;
+    bar_y = Window_Get_Y() - 120;
+
+    # Breathing animation state
+    progress = 0.0;
+    breathing_time = 0.0;
+    fade_alpha = 0.0;
+    booted = 0;
+}
+
+progress_start(boot_steps, total_time) {
+    global_total = total_time;
+    global_boot_steps = boot_steps;
+    progress = 0.0;
+}
+
+progress_set(fraction) {
+    progress = fraction;
+}
+
+progress_stop() {
+    booted = 1;
+}
+
+boot_message(message) {
+    # Update loading text if needed
+}
+
+display normal {
+    # Fade in
+    if (fade_alpha < 1.0) {
+        fade_alpha = fade_alpha + 0.02;
+        if (fade_alpha > 1.0) {
+            fade_alpha = 1.0;
+        }
+    }
+
+    # Breathing / pulsing glow effect on logo
+    breathing_time = breathing_time + 0.03;
+    pulse = 0.6 + 0.4 * sin(breathing_time * 2.0);
+
+    # Draw logo with pulsing alpha
+    Image_Set_Alpha(logo, fade_alpha * pulse);
+    Draw_Image(logo, logo_x, logo_y);
+
+    # Draw "Loading..." text
+    Image_Set_Alpha(loading, fade_alpha * 0.8);
+    Draw_Image(loading, loading_x, loading_y);
+
+    # Progress bar background (dark panel)
+    Window_Set_Filled_Rectangle_Color(bar_x, bar_y, bar_width, bar_height, 0.102, 0.102, 0.180);
+
+    # Progress bar fill
+    fill_width = bar_width * progress;
+    if (fill_width > 0) {
+        Window_Set_Filled_Rectangle_Color(bar_x, bar_y, fill_width, bar_height, 0.298, 0.788, 0.941);
+    }
+}
+
+display password {
+    # Prompt for password entry
+    prompt = Image_Text("Enter passphrase:", 0.298, 0.788, 0.941);
+    prompt_x = Window_Get_X() / 2 - Image_Get_Width(prompt) / 2;
+    prompt_y = logo_y + Image_Get_Height(logo) + 80;
+
+    Draw_Image(prompt, prompt_x, prompt_y);
+}

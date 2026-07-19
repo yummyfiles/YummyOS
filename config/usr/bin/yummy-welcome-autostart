@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+#
+# yummy-welcome-autostart - YummyOS First Login Welcome Launcher
+# Launches the welcome app on first login if it has not been run yet.
+#
+
+set -euo pipefail
+
+readonly VERSION="1.0.0"
+readonly WELCOME_FLAG="${HOME}/.config/yummyos/welcome-done"
+readonly WELCOME_APP="yummy-welcome"
+readonly LOG_TAG="yummy-welcome"
+
+log() {
+    logger -t "${LOG_TAG}" "$1" 2>/dev/null || true
+}
+
+usage() {
+    cat <<EOF
+yummy-welcome-autostart ${VERSION} - YummyOS Welcome Launcher
+
+Usage:
+    yummy-welcome-autostart           Launch welcome app if not yet run
+    yummy-welcome-autostart --force   Force launch welcome app
+    yummy-welcome-autostart --reset   Reset welcome-done flag
+    yummy-welcome-autostart --help    Show this help message
+    yummy-welcome-autostart --version Show version
+
+EOF
+    exit 0
+}
+
+check_display() {
+    if [[ -z "${DISPLAY:-}" ]] && [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
+        return 1
+    fi
+    return 0
+}
+
+ensure_config_dir() {
+    mkdir -p "${HOME}/.config/yummyos" 2>/dev/null || true
+}
+
+mark_welcome_done() {
+    ensure_config_dir
+    touch "${WELCOME_FLAG}"
+    log "Welcome flag created at ${WELCOME_FLAG}"
+}
+
+is_welcome_done() {
+    [[ -f "${WELCOME_FLAG}" ]]
+}
+
+launch_welcome() {
+    if ! check_display; then
+        log "No display server found, skipping welcome launch"
+        return 0
+    fi
+
+    if ! command -v "${WELCOME_APP}" &>/dev/null; then
+        log "Welcome app '${WELCOME_APP}' not found, skipping"
+        echo "Welcome app not installed. Skipping." >&2
+        return 0
+    fi
+
+    log "Launching welcome application"
+
+    # Launch in background and wait for it to exit
+    "${WELCOME_APP}" &
+    local welcome_pid=$!
+
+    # Wait for the process to finish with a timeout
+    local timeout=300
+    local elapsed=0
+    while kill -0 "${welcome_pid}" 2>/dev/null; do
+        sleep 1
+        elapsed=$((elapsed + 1))
+        if [[ ${elapsed} -ge ${timeout} ]]; then
+            log "Welcome app timed out after ${timeout}s, terminating"
+            kill "${welcome_pid}" 2>/dev/null || true
+            break
+        fi
+    done
+
+    mark_welcome_done
+    log "Welcome application completed"
+}
+
+reset_flag() {
+    if [[ -f "${WELCOME_FLAG}" ]]; then
+        rm -f "${WELCOME_FLAG}"
+        echo "Welcome flag reset. Welcome app will launch on next login."
+        log "Welcome flag removed"
+    else
+        echo "Welcome flag does not exist."
+    fi
+}
+
+main() {
+    local cmd="${1:-}"
+    case "${cmd}" in
+        --force|-f)
+            log "Force launching welcome app"
+            launch_welcome
+            ;;
+        --reset|-r)
+            reset_flag
+            ;;
+        --help|-h)
+            usage
+            ;;
+        --version|-v)
+            echo "yummy-welcome-autostart ${VERSION}"
+            exit 0
+            ;;
+        "")
+            if is_welcome_done; then
+                log "Welcome already shown, skipping"
+                exit 0
+            fi
+            log "First login detected, launching welcome app"
+            launch_welcome
+            ;;
+        *)
+            echo "Unknown option: ${cmd}" >&2
+            echo "Run 'yummy-welcome-autostart --help' for usage." >&2
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

@@ -1,0 +1,136 @@
+# Maintainer: YummyOS Team <team@yummyos.org>
+pkgname=yummyos-branding
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="YummyOS Branding - Visual identity: themes, wallpapers, color schemes, icons, and splash screens"
+arch=('any')
+url="https://yummyos.org"
+license=('GPL-3.0-or-later')
+depends=(
+    'breeze'
+    'plasma-workspace'
+    'plasma-framework'
+    'kcolorscheme'
+    'kiconthemes'
+    'ksvg'
+)
+makedepends=()
+optdepends=(
+    'yummyos-wallpapers-extra: Additional wallpaper collection'
+)
+provides=('yummyos-branding' 'yummyos-themes' 'yummyos-icons')
+conflicts=('yummyos-branding-git')
+replaces=('yummyos-themes' 'yummyos-icons')
+backup=(
+    'etc/colordefs/yummyos.colors'
+    'etc/xdg/yummyos-branding.conf'
+)
+source=("${url}/releases/${pkgname}-${pkgver}.tar.xz")
+sha256sums=('SKIP')
+
+build() {
+    # Branding package is mostly asset installation; no build step needed.
+    echo "No build step required for branding package."
+}
+
+package() {
+    cd "${srcdir}/${pkgname}-${pkgver}" || cd "${srcdir}"
+
+    # --- Color Schemes ---
+    install -Dm644 colors/yummyos.colors \
+        "${pkgdir}/usr/share/color-schemes/YummyOS.colors"
+    install -Dm644 colors/yummyos-dark.colors \
+        "${pkgdir}/usr/share/color-schemes/YummyOS-Dark.colors"
+    install -Dm644 colors/yummyos-light.colors \
+        "${pkgdir}/usr/share/color-schemes/YummyOS-Light.colors"
+
+    # --- Global Themes ---
+    install -Dm644 themes/yummyos-dark/metadata.desktop \
+        "${pkgdir}/usr/share/plasma/look-and-feel/org.yummyos.desktop.dark/metadata.desktop"
+    cp -r themes/yummyos-dark/contents \
+        "${pkgdir}/usr/share/plasma/look-and-feel/org.yummyos.desktop.dark/" 2>/dev/null || true
+
+    install -Dm644 themes/yummyos-light/metadata.desktop \
+        "${pkgdir}/usr/share/plasma/look-and-feel/org.yummyos.desktop.light/metadata.desktop"
+    cp -r themes/yummyos-light/contents \
+        "${pkgdir}/usr/share/plasma/look-and-feel/org.yummyos.desktop.light/" 2>/dev/null || true
+
+    # --- GTK Theme Overrides ---
+    install -Dm644 gtk/dark/gtk.css \
+        "${pkgdir}/usr/share/themes/YummyOS/gtk-3.0/gtk.css" 2>/dev/null || true
+    install -Dm644 gtk/dark/gtk.css \
+        "${pkgdir}/usr/share/themes/YummyOS-dark/gtk-3.0/gtk.css" 2>/dev/null || true
+    install -Dm644 gtk/light/gtk.css \
+        "${pkgdir}/usr/share/themes/YummyOS-light/gtk-3.0/gtk.css" 2>/dev/null || true
+
+    # --- Cursor Theme ---
+    install -Dm644 cursors/yummyos-cursors/index.theme \
+        "${pkgdir}/usr/share/icons/yummyos-cursors/index.theme" 2>/dev/null || true
+    if [[ -d cursors/yummyos-cursors ]]; then
+        cp -r cursors/yummyos-cursors \
+            "${pkgdir}/usr/share/icons/" 2>/dev/null || true
+    fi
+
+    # --- Icon Theme ---
+    install -Dm644 icons/yummyos/index.theme \
+        "${pkgdir}/usr/share/icons/yummyos/index.theme" 2>/dev/null || true
+    if [[ -d icons/yummyos ]]; then
+        cp -r icons/yummyos \
+            "${pkgdir}/usr/share/icons/" 2>/dev/null || true
+    fi
+
+    # --- Wallpapers ---
+    install -d "${pkgdir}/usr/share/wallpapers/YummyOS"
+    if [[ -d wallpapers ]]; then
+        cp -r wallpapers/* "${pkgdir}/usr/share/wallpapers/YummyOS/" 2>/dev/null || true
+    fi
+
+    # Default wallpaper
+    install -Dm644 wallpapers/default.png \
+        "${pkgdir}/usr/share/wallpapers/YummyOS/contents/images/default.png" 2>/dev/null || true
+
+    # --- Splash Screen ---
+    if [[ -d splash ]]; then
+        install -d "${pkgdir}/usr/share/plasma/look-and-feel/org.yummyos.desktop/contents/splash"
+        cp -r splash/* \
+            "${pkgdir}/usr/share/plasma/look-and-feel/org.yummyos.desktop/contents/splash/" 2>/dev/null || true
+    fi
+
+    # --- Boot Splash (Plymouth) ---
+    install -Dm644 plymouth/yummyos.plymouth \
+        "${pkgdir}/usr/share/plymouth/themes/yummyos/yummyos.plymouth" 2>/dev/null || true
+    if [[ -d plymouth ]]; then
+        cp -r plymouth/* \
+            "${pkgdir}/usr/share/plymouth/themes/yummyos/" 2>/dev/null || true
+    fi
+
+    # --- Konsole Profile ---
+    install -Dm644 konsole/yummyos.profile \
+        "${pkgdir}/usr/share/konsole/YummyOS.profile" 2>/dev/null || true
+
+    # --- Default Configuration ---
+    install -Dm644 defaults/yummyos-branding.conf \
+        "${pkgdir}/etc/xdg/yummyos-branding.conf" 2>/dev/null || true
+
+    # --- YummyOS Default Color Definitions ---
+    install -Dm644 colordefs/yummyos.colors \
+        "${pkgdir}/etc/colordefs/yummyos.colors" 2>/dev/null || true
+
+    # --- Post-install Note ---
+    install -Dm644 /dev/null "${pkgdir}/usr/share/doc/${pkgname}/INSTALL" 2>/dev/null || true
+    cat > "${pkgdir}/usr/share/doc/${pkgname}/INSTALL" << 'NOTE'
+YummyOS Branding Package Installed.
+
+To activate the YummyOS look and feel:
+  - Open System Settings > Appearance
+  - Select "YummyOS Dark" or "YummyOS Light"
+  - Or run: plasma-apply-lookandfeel -a org.yummyos.desktop.dark
+
+To set the default wallpaper:
+  - plasma-apply-wallpaper /usr/share/wallpapers/YummyOS/contents/images/default.png
+
+For accent color customization:
+  - Run: yummy-theme-apply --list-accent-colors
+  - Then: yummy-theme-apply --apply <color>
+NOTE
+}

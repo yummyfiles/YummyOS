@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="ig" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4CC9F0"/>
+      <stop offset="100%" stop-color="#7B2CBF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Shield shape -->
+  <path d="M32,3 L57,15 L60,38 L48,58 L16,58 L4,38 L7,15 Z"
+        fill="url(#ig)"/>
+
+  <!-- Y letterform -->
+  <g transform="translate(32,32)" fill="white">
+    <!-- Left arm -->
+    <rect x="-11" y="-17" width="5" height="14" rx="2.5" transform="rotate(30,-9,-10)"/>
+    <!-- Right arm -->
+    <rect x="6" y="-17" width="5" height="14" rx="2.5" transform="rotate(-30,9,-10)"/>
+    <!-- Stem -->
+    <rect x="-2.5" y="-4" width="5" height="20" rx="2.5"/>
+    <!-- Base dot -->
+    <circle cx="0" cy="18" r="3"/>
+  </g>
+</svg>

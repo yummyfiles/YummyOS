@@ -1,0 +1,15 @@
+<RCC>
+    <qresource prefix="/">
+        <file>src/qml/main.qml</file>
+        <file>src/qml/components/StepIndicator.qml</file>
+        <file>src/qml/components/PageCard.qml</file>
+        <file>src/qml/components/NetworkPage.qml</file>
+        <file>src/qml/components/DriversPage.qml</file>
+        <file>src/qml/components/UpdatesPage.qml</file>
+        <file>src/qml/components/GamingPage.qml</file>
+        <file>src/qml/components/DeveloperPage.qml</file>
+        <file>src/qml/components/AppearancePage.qml</file>
+        <file>src/qml/components/ImportPage.qml</file>
+        <file>src/qml/components/DonePage.qml</file>
+    </qresource>
+</RCC>

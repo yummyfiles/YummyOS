@@ -1,0 +1,93 @@
+# Build directories
+build/iso/
+build/airootfs/var/
+build/airootfs/tmp/
+out/
+cmake-build-*/
+build/
+
+# Generated files in airootfs
+build/airootfs/etc/machine-id
+build/airootfs/etc/shadow
+build/airootfs/etc/gshadow
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.cproject
+.settings/
+.cache/
+compile_commands.json
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Compiled binaries
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+
+# CMake build artifacts
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+!cmake/**/*.cmake
+CMakeUserPresets.json
+
+# Qt specific
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+*.pro.user
+*.pro.user.*
+
+# Package files
+*.tar.gz
+*.tar.xz
+*.tar.bz2
+*.pkg.tar.*
+!build/packages.x86_64
+
+# ISO images
+*.iso
+*.img
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.orig
+
+# Node (for docs tooling if ever used)
+node_modules/
+package-lock.json
+
+# Python (for scripts)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Secrets / tokens - NEVER commit these
+General GitHub token
+*.token
+.env
+.env.*

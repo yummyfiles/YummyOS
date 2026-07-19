@@ -1,0 +1,18 @@
+[Unit]
+Description=YummyOS Gaming Mode Service
+Documentation=https://yummyos.org/docs/gaming
+After=yummy-performance.service graphical.target
+Requires=yummy-gaming.target
+Wants=yummy-gaming.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/yummy-performance-gaming start
+ExecStop=/usr/bin/yummy-performance-gaming stop
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=yummy-gaming
+
+[Install]
+WantedBy=yummy-gaming.target

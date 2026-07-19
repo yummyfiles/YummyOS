@@ -1,0 +1,6 @@
+[Plymouth Theme]
+Name=YummyOS
+Module=yummyos
+Description=YummyOS Boot Splash
+ImageDir=/usr/share/plymouth/themes/YummyOS
+ScriptFile=/usr/share/plymouth/themes/YummyOS/yummyos.script

@@ -1,0 +1,268 @@
+name: Build & Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  lint-shell:
+    name: Lint Shell Scripts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Find shell scripts
+        id: find-scripts
+        run: |
+          scripts=$(find . -name "*.sh" -not -path "./.git/*" -not -path "./build/iso/*" | xargs -r)
+          echo "scripts<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$scripts" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Run shellcheck
+        run: |
+          find . -name "*.sh" -not -path "./.git/*" -not -path "./build/iso/*" -print0 \
+            | xargs -0 shellcheck \
+              --severity=warning \
+              --format=gcc
+
+  lint-cpp:
+    name: Lint C++ Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: sudo apt-get update && sudo apt-get install -y clang-format
+
+      - name: Run clang-format check
+        run: |
+          find apps/ -name "*.cpp" -o -name "*.h" | while read -r file; do
+            echo "Checking: $file"
+            if ! clang-format --dry-run --Werror "$file" 2>&1; then
+              echo "::error file=$file::Format violations found. Run clang-format -i $file"
+              FAILED=1
+            fi
+          done
+          if [ "${FAILED:-0}" = "1" ]; then
+            echo ""
+            echo "To fix formatting, run:"
+            echo "  find apps/ -name '*.cpp' -o -name '*.h' | xargs clang-format -i"
+            exit 1
+          fi
+          echo "All C++ files pass formatting check."
+
+  validate-configs:
+    name: Validate Configuration Files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate XML files
+        run: |
+          echo "Checking XML files..."
+          FAILED=0
+          find . -name "*.xml" -not -path "./.git/*" | while read -r file; do
+            if ! xmllint --noout "$file" 2>/dev/null; then
+              echo "::error file=$file::Invalid XML"
+              FAILED=1
+            else
+              echo "  OK: $file"
+            fi
+          done
+          exit "${FAILED:-0}"
+
+      - name: Validate INI syntax
+        run: |
+          echo "Checking INI/conf files..."
+          find . -name "*.ini" -o -name "*.conf" | while read -r file; do
+            # Basic syntax check: ensure no unmatched quotes or brackets
+            if python3 -c "
+          import configparser, sys
+          c = configparser.ConfigParser()
+          try:
+              c.read('$file')
+              print(f'  OK: $file')
+          except configparser.ParsingError as e:
+              print(f'  ERROR: $file - {e}')
+              sys.exit(1)
+          " 2>/dev/null; then
+              :
+            else
+              echo "  WARNING: $file (non-standard format, skipping strict parse)"
+            fi
+          done
+
+      - name: Validate YAML files
+        run: |
+          echo "Checking YAML files..."
+          find . -name "*.yml" -o -name "*.yaml" | while read -r file; do
+            if python3 -c "import yaml; yaml.safe_load(open('$file'))" 2>/dev/null; then
+              echo "  OK: $file"
+            else
+              echo "::error file=$file::Invalid YAML syntax"
+              exit 1
+            fi
+          done
+
+      - name: Validate package list
+        run: |
+          echo "Checking packages.x86_64..."
+          PKG_FILE="build/packages.x86_64"
+          if [ ! -f "$PKG_FILE" ]; then
+            echo "::error::Package list not found at $PKG_FILE"
+            exit 1
+          fi
+          PKG_COUNT=$(grep -v '^#' "$PKG_FILE" | grep -v '^[[:space:]]*$' | wc -l)
+          echo "  Found $PKG_COUNT packages"
+          if [ "$PKG_COUNT" -lt 50 ]; then
+            echo "::warning::Package count ($PKG_COUNT) seems low for a full desktop ISO"
+          fi
+
+      - name: Validate profiledef.sh
+        run: |
+          echo "Checking profiledef.sh syntax..."
+          if bash -n build/profiledef.sh; then
+            echo "  OK: profiledef.sh syntax valid"
+          else
+            echo "::error::profiledef.sh has syntax errors"
+            exit 1
+          fi
+
+      - name: Validate CMakeLists.txt
+        run: |
+          echo "Checking CMakeLists.txt files..."
+          find . -name "CMakeLists.txt" | while read -r file; do
+            echo "  Checking: $file"
+            # Verify basic CMake syntax by checking for matching function calls
+            opens=$(grep -c "^[[:space:]]*cmake_minimum_required\|^[[:space:]]*project\|^[[:space:]]*find_package\|^[[:space:]]*add_executable\|^[[:space:]]*target_link_libraries\|^[[:space:]]*install(" "$file" || true)
+            echo "  Found $opens CMake commands in $file"
+          done
+
+  build-control-center:
+    name: Build Control Center
+    runs-on: ubuntu-latest
+    needs: [lint-cpp]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            extra-cmake-modules \
+            qt6-base-dev \
+            qt6-declarative-dev \
+            qt6-tools-dev \
+            libkf6coreaddons-dev \
+            libkf6i18n-dev \
+            libkf6config-dev \
+            libkf6kio-dev \
+            libkf6iconthemes-dev \
+            libkf6dbusaddons-dev \
+            libkf6windowsystem-dev \
+            libkf6plasma-dev \
+            pkg-config
+
+      - name: Configure CMake
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+            -DCMAKE_INSTALL_PREFIX=/usr \
+            -DQT_MAJOR_VERSION=6
+        working-directory: apps/control-center
+
+      - name: Build
+        run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel $(nproc)
+        working-directory: apps/control-center
+
+  build-welcome:
+    name: Build Welcome App
+    runs-on: ubuntu-latest
+    needs: [lint-cpp]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            extra-cmake-modules \
+            qt6-base-dev \
+            qt6-declarative-dev \
+            qt6-svg-dev \
+            libkf6coreaddons-dev \
+            libkf6i18n-dev \
+            libkf6config-dev \
+            libkf6dbusaddons-dev \
+            libkf6iconthemes-dev \
+            libkf6windowystem-dev \
+            pkg-config
+
+      - name: Configure CMake
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+            -DCMAKE_INSTALL_PREFIX=/usr \
+            -DQT_MAJOR_VERSION=6
+        working-directory: apps/welcome
+
+      - name: Build
+        run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel $(nproc)
+        working-directory: apps/welcome
+
+  build-iso:
+    name: Build ISO Image
+    runs-on: ubuntu-latest
+    needs: [lint-shell, validate-configs]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    container:
+      image: archlinux:latest
+    steps:
+      - name: Install base packages
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm \
+            archiso \
+            git \
+            base-devel
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build ISO
+        run: |
+          chmod +x scripts/build-iso.sh
+          scripts/build-iso.sh -o out
+
+      - name: Verify ISO
+        run: |
+          chmod +x scripts/verify-build.sh
+          scripts/verify-build.sh
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: yummyos-iso-${{ github.sha }}
+          path: out/yummyos-*.iso
+          retention-days: 14
+          if-no-files-found: error

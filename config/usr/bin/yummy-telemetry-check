@@ -1,0 +1,393 @@
+#!/usr/bin/env bash
+#
+# yummy-telemetry-check - YummyOS Privacy Verification Tool
+# Checks that no telemetry, tracking, or analytics services are active.
+#
+
+set -euo pipefail
+
+readonly VERSION="1.0.0"
+readonly LOG_TAG="yummy-telemetry"
+
+PASS_COUNT=0
+FAIL_COUNT=0
+WARN_COUNT=0
+
+log() {
+    logger -t "${LOG_TAG}" "$1" 2>/dev/null || true
+}
+
+check_pass() {
+    local desc="$1"
+    PASS_COUNT=$((PASS_COUNT + 1))
+    printf "  [\033[32mPASS\033[0m] %s\n" "${desc}"
+    log "PASS: ${desc}"
+}
+
+check_fail() {
+    local desc="$1"
+    local detail="${2:-}"
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    printf "  [\033[31mFAIL\033[0m] %s" "${desc}"
+    if [[ -n "${detail}" ]]; then
+        printf " - %s" "${detail}"
+    fi
+    printf "\n"
+    log "FAIL: ${desc} - ${detail}"
+}
+
+check_warn() {
+    local desc="$1"
+    local detail="${2:-}"
+    WARN_COUNT=$((WARN_COUNT + 1))
+    printf "  [\033[33mWARN\033[0m] %s" "${desc}"
+    if [[ -n "${detail}" ]]; then
+        printf " - %s" "${detail}"
+    fi
+    printf "\n"
+    log "WARN: ${desc} - ${detail}"
+}
+
+usage() {
+    cat <<EOF
+yummy-telemetry-check ${VERSION} - YummyOS Privacy Verification Tool
+
+Usage:
+    yummy-telemetry-check          Run all telemetry checks
+    yummy-telemetry-check --help   Show this help message
+    yummy-telemetry-check --version Show version
+
+This tool verifies that no telemetry, tracking, or analytics services
+are running or configured on the system.
+
+EOF
+    exit 0
+}
+
+check_systemd_telemetry_units() {
+    echo ""
+    echo "=== Systemd Telemetry Units ==="
+
+    local telemetry_units=(
+        "telemetry.service"
+        "telemetry.timer"
+        "ubuntu-advantage-tools.service"
+        "popularity-contest.service"
+        "apport.service"
+        "apport-autoreport.timer"
+        "apport-autoreport.path"
+        "whoopsie.service"
+        "whoopsie.timer"
+        "metrics-sink.service"
+        "collectd.service"
+        "packagekit.service"
+        "fwupd.service"
+    )
+
+    local found_any=false
+
+    for unit in "${telemetry_units[@]}"; do
+        if systemctl is-active --quiet "${unit}" 2>/dev/null; then
+            check_fail "Systemd unit active: ${unit}" "Service is running"
+            found_any=true
+        elif systemctl is-enabled --quiet "${unit}" 2>/dev/null; then
+            check_warn "Systemd unit enabled: ${unit}" "Service is enabled but not active"
+            found_any=true
+        fi
+    done
+
+    if [[ "${found_any}" == "false" ]]; then
+        check_pass "No systemd telemetry units active or enabled"
+    fi
+}
+
+check_kde_telemetry() {
+    echo ""
+    echo "=== KDE Telemetry Settings ==="
+
+    local kde_telemetry_configs=(
+        "${HOME}/.config/kdeglobals"
+        "${HOME}/.config/kded5rc"
+        "${HOME}/.config/kded6rc"
+    )
+
+    local found_issue=false
+
+    for config in "${kde_telemetry_configs[@]}"; do
+        if [[ -f "${config}" ]]; then
+            # Check for telemetry/sharing settings
+            if grep -qiE "(share usage|telemetry|usage statistics|enable.*data.*sharing)" "${config}" 2>/dev/null; then
+                local setting
+                setting=$(grep -iE "(share usage|telemetry|usage statistics|enable.*data.*sharing)" "${config}" 2>/dev/null | head -1)
+                check_fail "KDE telemetry setting found in $(basename "${config}")" "${setting}"
+                found_issue=true
+            fi
+        fi
+    done
+
+    # Check KDE Feedback Policy
+    local feedback_dir="${HOME}/.config"
+    if [[ -f "${feedback_dir}/kdeglobals" ]]; then
+        if grep -q "DevelopmentErrorTrace=false" "${feedback_dir}/kdeglobals" 2>/dev/null; then
+            check_pass "KDE error reporting disabled"
+        fi
+    fi
+
+    # Check KDE Discover telemetry
+    local discover_config="${HOME}/.config/kdisoverrc"
+    if [[ -f "${discover_config}" ]]; then
+        if grep -qi "telemetry" "${discover_config}" 2>/dev/null; then
+            check_warn "KDE Discover telemetry setting found" "Review ${discover_config}"
+            found_issue=true
+        fi
+    fi
+
+    if [[ "${found_issue}" == "false" ]]; then
+        check_pass "No KDE telemetry settings detected"
+    fi
+}
+
+check_browser_telemetry() {
+    echo ""
+    echo "=== Browser Telemetry ==="
+
+    # Firefox telemetry
+    local firefox_profiles="${HOME}/.mozilla/firefox"
+    if [[ -d "${firefox_profiles}" ]]; then
+        local has_telemetry=false
+        for prefs in "${firefox_profiles}"/*/prefs.js; do
+            if [[ -f "${prefs}" ]]; then
+                if grep -q 'user_pref("toolkit.telemetry.enabled", true)' "${prefs}" 2>/dev/null; then
+                    check_fail "Firefox telemetry enabled" "${prefs}"
+                    has_telemetry=true
+                fi
+                if grep -q 'user_pref("datareporting.healthreport.uploadEnabled", true)' "${prefs}" 2>/dev/null; then
+                    check_fail "Firefox health report upload enabled" "${prefs}"
+                    has_telemetry=true
+                fi
+                if grep -q 'user_pref("toolkit.telemetry.unified", true)' "${prefs}" 2>/dev/null; then
+                    check_fail "Firefox unified telemetry enabled" "${prefs}"
+                    has_telemetry=true
+                fi
+                if grep -q 'user_pref("app.shield.optoutstudies.enabled", true)' "${prefs}" 2>/dev/null; then
+                    check_fail "Firefox Shield studies enabled" "${prefs}"
+                    has_telemetry=true
+                fi
+            fi
+        done
+        if [[ "${has_telemetry}" == "false" ]]; then
+            check_pass "Firefox telemetry appears disabled"
+        fi
+    else
+        check_pass "Firefox not installed (no profiles found)"
+    fi
+
+    # Chromium-based telemetry
+    local chromium_configs=(
+        "${HOME}/.config/chromium/Local State"
+        "${HOME}/.config/google-chrome/Local State"
+        "${HOME}/.config/vivaldi/Local State"
+    )
+
+    for config in "${chromium_configs[@]}"; do
+        if [[ -f "${config}" ]]; then
+            if grep -q '"metrics_reporting_enabled":true' "${config}" 2>/dev/null; then
+                check_fail "Chromium metrics reporting enabled" "${config}"
+            else
+                check_pass "$(basename "$(dirname "${config}")") metrics reporting disabled"
+            fi
+        fi
+    done
+
+    # Check if Brave telemetry is disabled
+    local brave_config="${HOME}/.config/BraveSoftware/Brave-Browser/Local State"
+    if [[ -f "${brave_config}" ]]; then
+        if grep -q '"metrics_reporting_enabled":true' "${brave_config}" 2>/dev/null; then
+            check_fail "Brave metrics reporting enabled" "${brave_config}"
+        else
+            check_pass "Brave metrics reporting disabled"
+        fi
+    fi
+}
+
+check_tracking_services() {
+    echo ""
+    echo "=== Common Tracking Services ==="
+
+    # Check for phoning home services
+    local tracking_services=(
+        "packagekit"
+        "snapd"
+        "networkd-dispatcher"
+    )
+
+    local found_tracking=false
+
+    for service in "${tracking_services[@]}"; do
+        if systemctl is-active --quiet "${service}.service" 2>/dev/null; then
+            check_warn "Service running: ${service}" "May phone home for package info"
+            found_tracking=true
+        fi
+    done
+
+    # Check for USN (Ubuntu Security Notices) tracker
+    if [[ -f "/etc/apt/apt.conf.d/20auto-upgrades" ]]; then
+        if grep -q 'APT::Periodic::Download-Upgradeable-Packages "1"' /etc/apt/apt.conf.d/20auto-upgrades 2>/dev/null; then
+            check_warn "Automatic package metadata download enabled" "in /etc/apt/apt.conf.d/20auto-upgrades"
+            found_tracking=true
+        fi
+    fi
+
+    # Check for snap telemetry
+    if command -v snap &>/dev/null; then
+        if snap get system hints.refresh-mesh 2>/dev/null | grep -q "true" 2>/dev/null; then
+            check_warn "Snap refresh mesh tracking enabled"
+            found_tracking=true
+        fi
+    fi
+
+    # Check if GeoClue is active (location tracking)
+    if systemctl is-active --quiet geoclue.service 2>/dev/null; then
+        check_warn "GeoClue location service is active" "May provide location data to applications"
+        found_tracking=true
+    fi
+
+    if [[ "${found_tracking}" == "false" ]]; then
+        check_pass "No common tracking services detected"
+    fi
+}
+
+check_network_telemetry() {
+    echo ""
+    echo "=== Network Telemetry ==="
+
+    # Check for known telemetry endpoints in /etc/hosts
+    if [[ -f "/etc/hosts" ]]; then
+        local telemetry_domains=(
+            "analytics.google.com"
+            "stats.g.doubleclick.net"
+            "telemetry.microsoft.com"
+            "data.microsoft.com"
+        )
+
+        local blocked_count=0
+        for domain in "${telemetry_domains[@]}"; do
+            if grep -q "${domain}" /etc/hosts 2>/dev/null; then
+                blocked_count=$((blocked_count + 1))
+            fi
+        done
+
+        if [[ ${blocked_count} -gt 0 ]]; then
+            check_pass "${blocked_count} telemetry domain(s) blocked in /etc/hosts"
+        fi
+    fi
+
+    # Check if mDNS/reflector is broadcasting
+    if systemctl is-active --quiet avahi-daemon.service 2>/dev/null; then
+        check_warn "Avahi mDNS daemon is active" "May broadcast service information"
+    else
+        check_pass "Avahi mDNS daemon is not active"
+    fi
+
+    # Check for cups-browsed (network printer discovery)
+    if systemctl is-active --quiet cups-browsed.service 2>/dev/null; then
+        check_warn "cups-browsed is active" "Network printer discovery may leak info"
+    else
+        check_pass "cups-browsed is not active"
+    fi
+}
+
+check_desktop_telemetry() {
+    echo ""
+    echo "=== Desktop Environment Telemetry ==="
+
+    # GNOME usage stats
+    local gnome_stats="${HOME}/.local/share/gnome-shell/stats"
+    if [[ -d "${gnome_stats}" ]]; then
+        local stat_files
+        stat_files=$(find "${gnome_stats}" -type f 2>/dev/null | wc -l)
+        if [[ ${stat_files} -gt 0 ]]; then
+            check_warn "GNOME Shell stats directory has ${stat_files} file(s)" "${gnome_stats}"
+        else
+            check_pass "GNOME Shell stats directory is empty"
+        fi
+    fi
+
+    # KDE UserFeedback
+    local kde_feedback="${HOME}/.config/userfeedback.conf"
+    if [[ -f "${kde_feedback}" ]]; then
+        if grep -q "ApplicationDataCollectionEnabled=true" "${kde_feedback}" 2>/dev/null; then
+            check_fail "KDE UserFeedback data collection enabled"
+        else
+            check_pass "KDE UserFeedback data collection appears disabled"
+        fi
+    else
+        check_pass "KDE UserFeedback config not found (likely disabled)"
+    fi
+}
+
+print_summary() {
+    local total=$((PASS_COUNT + FAIL_COUNT + WARN_COUNT))
+
+    echo ""
+    echo "========================================"
+    echo "  YummyOS Privacy Report Summary"
+    echo "========================================"
+    echo ""
+    printf "  \033[32mPass:  %d\033[0m\n" "${PASS_COUNT}"
+    printf "  \033[31mFail:  %d\033[0m\n" "${FAIL_COUNT}"
+    printf "  \033[33mWarn:  %d\033[0m\n" "${WARN_COUNT}"
+    echo "  Total: ${total}"
+    echo ""
+
+    if [[ ${FAIL_COUNT} -eq 0 && ${WARN_COUNT} -eq 0 ]]; then
+        echo "  Status: \033[32mALL CLEAR\033[0m"
+        echo "  No telemetry or tracking detected."
+    elif [[ ${FAIL_COUNT} -eq 0 ]]; then
+        echo "  Status: \033[33mMINOR WARNINGS\033[0m"
+        echo "  Review warnings above for potential privacy concerns."
+    else
+        echo "  Status: \033[31mISSUES FOUND\033[0m"
+        echo "  Telemetry or tracking services detected. Review above."
+    fi
+
+    echo ""
+    echo "========================================"
+    echo ""
+
+    log "Report complete: ${PASS_COUNT} pass, ${FAIL_COUNT} fail, ${WARN_COUNT} warn"
+}
+
+main() {
+    local cmd="${1:-}"
+    case "${cmd}" in
+        --help|-h)
+            usage
+            ;;
+        --version|-v)
+            echo "yummy-telemetry-check ${VERSION}"
+            exit 0
+            ;;
+    esac
+
+    echo "========================================"
+    echo "  YummyOS Privacy Verification Report"
+    echo "  $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "========================================"
+
+    check_systemd_telemetry_units
+    check_kde_telemetry
+    check_browser_telemetry
+    check_tracking_services
+    check_network_telemetry
+    check_desktop_telemetry
+
+    print_summary
+
+    if [[ ${FAIL_COUNT} -gt 0 ]]; then
+        exit 1
+    fi
+    exit 0
+}
+
+main "$@"

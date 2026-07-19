@@ -1,0 +1,27 @@
+[Desktop Entry]
+Type=Application
+Name=YummyOS Backup
+Name[ca]=Còpia de seguretat de YummyOS
+Name[de]=YummyOS Sicherung
+Name[es]=Copia de seguridad de YummyOS
+Name[fr]=Sauvegarde YummyOS
+Name[ja]=YummyOSバックアップ
+Name[ko]=YummyOS 백업
+Name[pt_BR]=Backup do YummyOS
+Name[zh_CN]=YummyOS 备份工具
+Comment=Create, restore, and manage system backups
+Comment[ca]=Crear, restaurar i gestionar còpies de seguretat del sistema
+Comment[de]=System-Sicherungen erstellen, wiederherstellen und verwalten
+Comment[es]=Crear, restaurar y gestionar copias de seguridad del sistema
+Comment[ja]=システムバックアップの作成、復元、管理
+Comment[ko]=시스템 백업 생성, 복원 및 관리
+Comment[pt_BR]=Criar, restaurar e gerenciar backups do sistema
+Comment[zh_CN]=创建、恢复和管理系统备份
+Exec=yummy-backup
+Icon=yummy-backup
+Terminal=false
+Categories=Qt;KDE;System;Utility;
+Keywords=backup;restore;system;snapshot;recovery;
+StartupNotify=true
+X-KDE-Keywords=backup,restore,system,snapshot,recovery
+X-DBUS-ServiceName=org.yummyos.backup

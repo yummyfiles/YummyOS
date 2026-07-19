@@ -1,0 +1,25 @@
+[Unit]
+Description=YummyOS Performance Profile Service
+Documentation=https://yummyos.org/docs/performance
+After=local-fs.target sys-kernel-config.mount
+Before=graphical.target multi-user.target
+Wants=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/yummy-performance apply-boot-profile
+ExecStop=/usr/bin/yummy-performance set balanced
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=yummy-performance
+
+# Security hardening
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/etc/yummyos
+NoNewPrivileges=no
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_NET_ADMIN
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+[Unit]
+Description=YummyOS Gaming Mode Target
+Documentation=https://yummyos.org/docs/gaming
+After=graphical.target
+Requires=graphical.target
+Wants=graphical.target
+
+[Install]
+WantedBy=graphical.target

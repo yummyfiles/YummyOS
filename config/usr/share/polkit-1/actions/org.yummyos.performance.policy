@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+
+  <vendor>YummyOS</vendor>
+  <vendor_url>https://yummyos.org</vendor_url>
+
+  <icon_name>yummyos-performance</icon_name>
+
+  <action id="org.yummyos.performance.set-profile">
+    <description>Change System Performance Profile</description>
+    <message>Authentication is required to change the system performance profile.</message>
+
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+
+    <annotate key="org.freedesktop.policykit.imply">org.yummyos.performance.view-profile</annotate>
+  </action>
+
+  <action id="org.yummyos.performance.view-profile">
+    <description>View System Performance Profile</description>
+    <message>Authentication is required to view the system performance profile.</message>
+
+    <defaults>
+      <allow_any>yes</allow_any>
+      <allow_inactive>yes</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.yummyos.performance.apply-gaming">
+    <description>Enable Gaming Mode Optimizations</description>
+    <message>Authentication is required to enable gaming mode optimizations.</message>
+
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.yummyos.performance.disable-gaming">
+    <description>Disable Gaming Mode Optimizations</description>
+    <message>Authentication is required to disable gaming mode optimizations.</message>
+
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+</policyconfig>

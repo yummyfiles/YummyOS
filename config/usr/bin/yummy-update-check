@@ -1,0 +1,250 @@
+#!/usr/bin/env bash
+#
+# yummy-update-check - YummyOS Update Checker
+# Checks for available system updates using pacman.
+#
+
+set -euo pipefail
+
+readonly VERSION="1.0.0"
+readonly LOG_TAG="yummy-update-check"
+readonly CACHE_FILE="/var/cache/yummyos/update-check.cache"
+readonly CACHE_MAX_AGE=300
+
+log() {
+    logger -t "${LOG_TAG}" "$1" 2>/dev/null || true
+}
+
+die() {
+    log "ERROR: $1" >&2
+    echo "ERROR: $1" >&2
+    exit 1
+}
+
+usage() {
+    cat <<EOF
+yummy-update-check ${VERSION} - YummyOS Update Checker
+
+Usage:
+    yummy-update-check                Check for available updates
+    yummy-update-check --quiet        Output only the update count
+    yummy-update-check --json         Output results in JSON format
+    yummy-update-check --cached       Use cached results if available
+    yummy-update-check --clear-cache  Clear the update cache
+    yummy-update-check --help         Show this help message
+    yummy-update-check --version      Show version
+
+Examples:
+    yummy-update-check
+    yummy-update-check --quiet
+    yummy-update-check --json
+    yummy-update-check --cached
+
+EOF
+    exit 0
+}
+
+check_pacman() {
+    if ! command -v pacman &>/dev/null; then
+        die "pacman not found. This tool requires an Arch-based distribution."
+    fi
+}
+
+use_cache() {
+    local use_cached="$1"
+
+    if [[ "${use_cached}" == "true" ]] && [[ -f "${CACHE_FILE}" ]]; then
+        local cache_age
+        cache_age=$(( $(date +%s) - $(stat -c %Y "${CACHE_FILE}" 2>/dev/null || echo "0") ))
+
+        if [[ ${cache_age} -lt ${CACHE_MAX_AGE} ]]; then
+            cat "${CACHE_FILE}"
+            return 0
+        fi
+    fi
+    return 1
+}
+
+save_cache() {
+    local data="$1"
+    mkdir -p "$(dirname "${CACHE_FILE}")" 2>/dev/null || true
+    echo "${data}" > "${CACHE_FILE}" 2>/dev/null || true
+}
+
+check_updates() {
+    log "Checking for available updates"
+
+    # Sync package databases
+    pacman -Sy --quiet 2>/dev/null || true
+
+    # Check for foreign packages (AUR)
+    local foreign_count=0
+    if command -v pacman &>/dev/null; then
+        foreign_count=$(pacman -Qm 2>/dev/null | wc -l || echo "0")
+    fi
+
+    # Count available updates
+    local update_list
+    update_list=$(pacman -Qu 2>/dev/null || echo "")
+    local update_count=0
+    local security_count=0
+
+    if [[ -n "${update_list}" ]]; then
+        update_count=$(echo "${update_list}" | wc -l || echo "0")
+
+        # Check for security-related updates
+        security_count=$(echo "${update_list}" | grep -ciE "(openssl|gnutls|libssh|openssh|linux |kernel|sudo|systemd)" || echo "0")
+    fi
+
+    # Get total installed packages
+    local installed_count
+    installed_count=$(pacman -Q 2>/dev/null | wc -l || echo "0")
+
+    # Build result
+    local result
+    result=$(cat <<JSON
+{
+  "updates_available": ${update_count},
+  "security_updates": ${security_count},
+  "foreign_packages": ${foreign_count},
+  "installed_packages": ${installed_count},
+  "timestamp": "$(date -Iseconds)",
+  "packages": [$(echo "${update_list}" | while IFS= read -r line; do
+      if [[ -n "${line}" ]]; then
+          local pkg_name pkg_current pkg_new
+          pkg_name=$(echo "${line}" | awk '{print $1}')
+          pkg_current=$(echo "${line}" | awk '{print $2}')
+          pkg_new=$(echo "${line}" | awk '{print $3}')
+          printf '{"name":"%s","current":"%s","new":"%s"},' "${pkg_name}" "${pkg_current}" "${pkg_new}"
+      fi
+  done | sed 's/,$//')]
+}
+JSON
+    )
+
+    echo "${result}"
+    save_cache "${result}"
+    log "Found ${update_count} update(s)"
+}
+
+print_human() {
+    local data="$1"
+    local update_count
+    update_count=$(echo "${data}" | grep -o '"updates_available": [0-9]*' | grep -o '[0-9]*' || echo "0")
+    local security_count
+    security_count=$(echo "${data}" | grep -o '"security_updates": [0-9]*' | grep -o '[0-9]*' || echo "0")
+    local foreign_count
+    foreign_count=$(echo "${data}" | grep -o '"foreign_packages": [0-9]*' | grep -o '[0-9]*' || echo "0")
+    local installed_count
+    installed_count=$(echo "${data}" | grep -o '"installed_packages": [0-9]*' | grep -o '[0-9]*' || echo "0")
+
+    echo ""
+    echo "=== YummyOS Update Check ==="
+    echo ""
+
+    if [[ "${update_count}" -gt 0 ]]; then
+        echo "  Available updates: ${update_count}"
+        if [[ "${security_count}" -gt 0 ]]; then
+            echo "  Security updates:   ${security_count}"
+        fi
+    else
+        echo "  System is up to date."
+    fi
+
+    echo ""
+    echo "  Installed packages: ${installed_count}"
+    echo "  AUR packages:       ${foreign_count}"
+    echo ""
+
+    if [[ "${update_count}" -gt 0 ]]; then
+        echo "  Run 'sudo pacman -Syu' to install updates."
+    fi
+    echo ""
+}
+
+print_quiet() {
+    local data="$1"
+    local update_count
+    update_count=$(echo "${data}" | grep -o '"updates_available": [0-9]*' | grep -o '[0-9]*' || echo "0")
+    echo "${update_count}"
+}
+
+clear_cache() {
+    if [[ -f "${CACHE_FILE}" ]]; then
+        rm -f "${CACHE_FILE}"
+        echo "Cache cleared."
+        log "Update cache cleared"
+    else
+        echo "No cache to clear."
+    fi
+}
+
+main() {
+    local quiet=false
+    local json_output=false
+    local use_cached_val=false
+    local do_clear=false
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --quiet|-q)
+                quiet=true
+                shift
+                ;;
+            --json|-j)
+                json_output=true
+                shift
+                ;;
+            --cached|-c)
+                use_cached_val=true
+                shift
+                ;;
+            --clear-cache)
+                do_clear=true
+                shift
+                ;;
+            --help|-h)
+                usage
+                ;;
+            --version|-v)
+                echo "yummy-update-check ${VERSION}"
+                exit 0
+                ;;
+            *)
+                die "Unknown option: $1. Run 'yummy-update-check --help' for usage."
+                ;;
+        esac
+    done
+
+    if [[ "${do_clear}" == "true" ]]; then
+        clear_cache
+        exit 0
+    fi
+
+    check_pacman
+
+    local data=""
+
+    # Try cache first
+    if [[ "${use_cached_val}" == "true" ]]; then
+        if data=$(use_cache "true"); then
+            log "Using cached update data"
+        fi
+    fi
+
+    # Fall back to live check
+    if [[ -z "${data}" ]]; then
+        data=$(check_updates)
+    fi
+
+    # Output
+    if [[ "${json_output}" == "true" ]]; then
+        echo "${data}"
+    elif [[ "${quiet}" == "true" ]]; then
+        print_quiet "${data}"
+    else
+        print_human "${data}"
+    fi
+}
+
+main "$@"

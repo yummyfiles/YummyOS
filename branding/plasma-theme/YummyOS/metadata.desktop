@@ -1,0 +1,14 @@
+[Desktop Entry]
+Name=YummyOS
+X-KDE-PluginInfo-Author=YummyOS Team
+X-KDE-PluginInfo-Email=dev@yummyos.org
+X-KDE-PluginInfo-License=GPL-3.0
+X-KDE-PluginInfo-Name=YummyOS
+X-KDE-PluginInfo-Version=1.0
+X-KDE-PluginInfo-Category=Plasma Theme API
+X-KDE-PluginInfo-EnabledByDefault=true
+
+[Desktop Entry translations]
+Name[en_US]=YummyOS
+Comment=A modern dark plasma theme for YummyOS with cyan and purple accents
+Comment[en_US]=A modern dark plasma theme for YummyOS with cyan and purple accents

@@ -1,0 +1,907 @@
+/* YummyOS GTK Dark Theme */
+
+/* Dark color definitions - matching the KDE color scheme */
+@define-color bg_color #1a1a2e;
+@define-color bg_color_light #252540;
+@define-color bg_color_lighter #353555;
+@define-color fg_color #e0e0e0;
+@define-color fg_color_dim #888888;
+@define-color accent_color #4CC9F0;
+@define-color accent_secondary #7B2CBF;
+@define-color success_color #2ecc71;
+@define-color warning_color #f39c12;
+@define-color error_color #e74c3c;
+@define-color link_color #4CC9F0;
+@define-color visited_color #7B2CBF;
+@define-color selection_bg #4CC9F0;
+@define-color selection_fg #000000;
+@define-color button_bg #252540;
+@define-color button_bg_hover #353555;
+@define-color button_fg #e0e0e0;
+@define-color border_color #353555;
+@define-color tooltip_bg #252540;
+@define-color tooltip_fg #e0e0e0;
+@define-color headerbar_bg #1a1a2e;
+@define-color headerbar_fg #e0e0e0;
+@define-color sidebar_bg #1a1a2e;
+@define-color sidebar_fg #e0e0e0;
+@define-color scrollbar_bg #252540;
+@define-color scrollbar_fg #353555;
+
+/* Force dark theme */
+gtk-application-prefer-dark-theme = true;
+gtk-theme-name = YummyOS;
+gtk-icon-theme-name = breeze-dark;
+gtk-cursor-theme-name = Breeze;
+gtk-cursor-theme-size = 24;
+gtk-font-name = Sans 10;
+gtk-decoration-layout = close,minimize,maximize:menu;
+gtk-titlebar-decoration = menu;
+
+/* Dark window backgrounds */
+* {
+    -GtkWidget-focus-padding: 1px;
+    -GtkWidget-focus-line-width: 2px;
+    -GtkButton-child-displacement-x: 1px;
+    -GtkButton-child-displacement-y: 1px;
+    -GtkCheckButton-indicator-size: 16px;
+    -GtkIconView-grid-spacing: 6px;
+    -GtkTreeView-vertical-separator: 2px;
+}
+
+window,
+.background,
+background {
+    background-color: @bg_color;
+    color: @fg_color;
+}
+
+/* Headerbar dark */
+headerbar,
+.titlebar {
+    background-color: @headerbar_bg;
+    color: @headerbar_fg;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    min-height: 36px;
+    padding: 0 6px;
+}
+
+headerbar button,
+.titlebar button {
+    background-color: transparent;
+    color: @headerbar_fg;
+    border: none;
+    border-radius: 8px;
+    padding: 4px 8px;
+    min-height: 28px;
+    min-width: 28px;
+}
+
+headerbar button:hover,
+.titlebar button:hover {
+    background-color: @button_bg_hover;
+}
+
+headerbar button:checked,
+.titlebar button:checked {
+    background-color: @accent_color;
+    color: @selection_fg;
+}
+
+headerbar .title,
+.titlebar .title {
+    font-weight: bold;
+    color: @fg_color;
+}
+
+headerbar .subtitle,
+.titlebar .subtitle {
+    color: @fg_color_dim;
+}
+
+/* Dark buttons */
+button {
+    background-color: @button_bg;
+    color: @button_fg;
+    border: 1px solid @border_color;
+    border-radius: 8px;
+    padding: 6px 14px;
+    min-height: 24px;
+    transition: all 200ms ease-in-out;
+}
+
+button:hover {
+    background-color: @button_bg_hover;
+    border-color: @accent_color;
+}
+
+button:active {
+    background-color: alpha(@accent_color, 0.3);
+    color: @accent_color;
+    border-color: @accent_color;
+}
+
+button:checked {
+    background-color: @accent_color;
+    color: @selection_fg;
+    border-color: @accent_color;
+}
+
+button:disabled {
+    background-color: @bg_color;
+    color: @fg_color_dim;
+    border-color: @border_color;
+}
+
+button.suggested-action {
+    background-color: @accent_color;
+    color: @selection_fg;
+    border-color: @accent_color;
+    font-weight: bold;
+}
+
+button.suggested-action:hover {
+    background-color: @accent_secondary;
+    border-color: @accent_secondary;
+}
+
+button.destructive-action {
+    background-color: @error_color;
+    color: #ffffff;
+    border-color: @error_color;
+}
+
+button.destructive-action:hover {
+    background-color: #c0392b;
+    border-color: #c0392b;
+}
+
+/* Links */
+a, link {
+    color: @link_color;
+    text-decoration: underline;
+}
+
+a:hover, link:hover {
+    color: @accent_secondary;
+}
+
+a:visited, link:visited {
+    color: @visited_color;
+}
+
+/* Labels */
+label {
+    color: @fg_color;
+}
+
+label:disabled {
+    color: @fg_color_dim;
+}
+
+label.dim-label {
+    color: @fg_color_dim;
+}
+
+/* Entries / Text inputs */
+entry,
+text {
+    background-color: @bg_color_light;
+    color: @fg_color;
+    border: 1px solid @border_color;
+    border-radius: 8px;
+    padding: 6px 10px;
+    min-height: 24px;
+    caret-color: @accent_color;
+}
+
+entry:focus,
+text:focus {
+    border-color: @accent_color;
+    box-shadow: 0 0 0 2px alpha(@accent_color, 0.3);
+}
+
+entry:disabled,
+text:disabled {
+    background-color: @bg_color;
+    color: @fg_color_dim;
+    border-color: @border_color;
+}
+
+entry selection,
+text selection {
+    background-color: @selection_bg;
+    color: @selection_fg;
+}
+
+/* Text view */
+textview,
+textview text {
+    background-color: @bg_color;
+    color: @fg_color;
+}
+
+textview text selection {
+    background-color: @selection_bg;
+    color: @selection_fg;
+}
+
+/* Selection */
+selection {
+    background-color: @selection_bg;
+    color: @selection_fg;
+}
+
+/* Scrollbar */
+scrollbar {
+    background-color: transparent;
+    border-radius: 8px;
+    min-width: 10px;
+    min-height: 10px;
+}
+
+scrollbar slider {
+    background-color: @scrollbar_fg;
+    border-radius: 8px;
+    min-width: 6px;
+    min-height: 40px;
+    margin: 2px;
+}
+
+scrollbar slider:hover {
+    background-color: @accent_color;
+}
+
+scrollbar slider:active {
+    background-color: @accent_secondary;
+}
+
+/* Overlay scrollbar */
+overshoot.top {
+    background: linear-gradient(to bottom, alpha(@accent_color, 0.3), transparent);
+}
+
+overshoot.bottom {
+    background: linear-gradient(to top, alpha(@accent_color, 0.3), transparent);
+}
+
+overshoot.left {
+    background: linear-gradient(to right, alpha(@accent_color, 0.3), transparent);
+}
+
+overshoot.right {
+    background: linear-gradient(to left, alpha(@accent_color, 0.3), transparent);
+}
+
+/* Menu / Popover */
+menu,
+popover,
+.context-menu,
+.background.popover {
+    background-color: @bg_color_light;
+    color: @fg_color;
+    border: 1px solid @border_color;
+    border-radius: 12px;
+    padding: 6px 0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+menuitem,
+popover menuitem {
+    color: @fg_color;
+    padding: 8px 16px;
+    border-radius: 8px;
+    margin: 2px 6px;
+    min-height: 28px;
+}
+
+menuitem:hover,
+popover menuitem:hover {
+    background-color: @accent_color;
+    color: @selection_fg;
+}
+
+menuitem:disabled,
+popover menuitem:disabled {
+    color: @fg_color_dim;
+}
+
+menu separator {
+    background-color: @border_color;
+    min-height: 1px;
+    margin: 4px 0;
+}
+
+menuitem arrow {
+    color: @fg_color;
+}
+
+/* Tooltip */
+tooltip,
+.background.tooltip {
+    background-color: @tooltip_bg;
+    color: @tooltip_fg;
+    border-radius: 8px;
+    padding: 8px 12px;
+    border: 1px solid @border_color;
+}
+
+/* Notebook (Tabs) */
+notebook > header {
+    background-color: @bg_color;
+    border: none;
+}
+
+notebook > header.top {
+    border-bottom: 1px solid @border_color;
+}
+
+notebook > header.bottom {
+    border-top: 1px solid @border_color;
+}
+
+notebook > header.left {
+    border-right: 1px solid @border_color;
+}
+
+notebook > header.right {
+    border-left: 1px solid @border_color;
+}
+
+notebook > header tab {
+    background-color: transparent;
+    color: @fg_color_dim;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 6px 16px;
+    min-height: 24px;
+}
+
+notebook > header tab:hover {
+    color: @fg_color;
+    background-color: @bg_color_light;
+}
+
+notebook > header tab:checked {
+    color: @accent_color;
+    border-bottom-color: @accent_color;
+    background-color: @bg_color_light;
+}
+
+notebook > stack {
+    background-color: @bg_color;
+}
+
+/* Progress bar */
+progressbar,
+progress {
+    background-color: @bg_color_light;
+    border-radius: 8px;
+    min-height: 8px;
+    padding: 2px;
+}
+
+progressbar progress,
+progress bar {
+    background-color: @accent_color;
+    border-radius: 8px;
+    min-height: 4px;
+}
+
+/* Scale / Slider */
+scale {
+    padding: 8px 0;
+}
+
+scale slider {
+    background-color: @accent_color;
+    border-radius: 50%;
+    min-width: 18px;
+    min-height: 18px;
+    border: 2px solid @accent_color;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    margin: -6px;
+    transition: all 150ms ease-in-out;
+}
+
+scale slider:hover {
+    background-color: lighten(@accent_color, 10%);
+    border-color: lighten(@accent_color, 10%);
+    box-shadow: 0 2px 8px alpha(@accent_color, 0.4);
+}
+
+scale slider:active {
+    background-color: @accent_secondary;
+    border-color: @accent_secondary;
+}
+
+scale trough {
+    background-color: @bg_color_light;
+    border-radius: 4px;
+    min-height: 4px;
+}
+
+scale highlight {
+    background-color: @accent_color;
+    border-radius: 4px;
+    min-height: 4px;
+}
+
+/* Switch */
+switch {
+    background-color: @bg_color_light;
+    border: 2px solid @border_color;
+    border-radius: 14px;
+    min-width: 40px;
+    min-height: 22px;
+    padding: 2px;
+    transition: all 200ms ease-in-out;
+}
+
+switch:checked {
+    background-color: @accent_color;
+    border-color: @accent_color;
+}
+
+switch:hover {
+    border-color: @accent_color;
+}
+
+switch slider {
+    background-color: @fg_color;
+    border-radius: 50%;
+    min-width: 18px;
+    min-height: 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+switch:disabled {
+    opacity: 0.5;
+}
+
+/* Checkbutton / Checkbox */
+checkbutton indicator,
+check indicator {
+    background-color: @bg_color_light;
+    border: 2px solid @border_color;
+    border-radius: 4px;
+    min-width: 18px;
+    min-height: 18px;
+    transition: all 150ms ease-in-out;
+}
+
+checkbutton indicator:checked,
+check indicator:checked {
+    background-color: @accent_color;
+    border-color: @accent_color;
+}
+
+checkbutton indicator:hover,
+check indicator:hover {
+    border-color: @accent_color;
+}
+
+checkbutton indicator:checked:hover,
+check indicator:checked:hover {
+    background-color: lighten(@accent_color, 10%);
+    border-color: lighten(@accent_color, 10%);
+}
+
+/* Radiobutton */
+radiobutton indicator {
+    background-color: @bg_color_light;
+    border: 2px solid @border_color;
+    border-radius: 50%;
+    min-width: 18px;
+    min-height: 18px;
+    transition: all 150ms ease-in-out;
+}
+
+radiobutton indicator:checked {
+    background-color: @accent_color;
+    border-color: @accent_color;
+    border-width: 5px;
+}
+
+radiobutton indicator:hover {
+    border-color: @accent_color;
+}
+
+/* Sidebar / Panel */
+.sidebar,
+.sidebar-box {
+    background-color: @sidebar_bg;
+    color: @sidebar_fg;
+    border-right: 1px solid @border_color;
+}
+
+.sidebar list {
+    background-color: transparent;
+}
+
+.sidebar list row {
+    background-color: transparent;
+    border-radius: 8px;
+    margin: 2px 4px;
+    padding: 4px 8px;
+}
+
+.sidebar list row:hover {
+    background-color: @button_bg_hover;
+}
+
+.sidebar list row:selected {
+    background-color: alpha(@accent_color, 0.2);
+    color: @accent_color;
+}
+
+/* Lists */
+list,
+list row {
+    background-color: @bg_color;
+    color: @fg_color;
+}
+
+list row {
+    border-bottom: 1px solid @border_color;
+    padding: 4px;
+}
+
+list row:selected {
+    background-color: alpha(@accent_color, 0.2);
+    color: @fg_color;
+}
+
+list row:hover {
+    background-color: @bg_color_light;
+}
+
+/* Trees */
+treeview,
+treeview header button {
+    background-color: @bg_color;
+    color: @fg_color;
+}
+
+treeview header button {
+    background-color: @bg_color_light;
+    border-bottom: 1px solid @border_color;
+    padding: 6px 10px;
+    font-weight: bold;
+}
+
+treeview:selected {
+    background-color: alpha(@accent_color, 0.2);
+    color: @fg_color;
+}
+
+treeview:hover {
+    background-color: @bg_color_light;
+}
+
+/* InfoBar */
+infobar {
+    border-radius: 8px;
+    padding: 8px 12px;
+    border: none;
+    min-height: 28px;
+}
+
+infobar.info {
+    background-color: alpha(@accent_color, 0.15);
+    color: @accent_color;
+}
+
+infobar.warning {
+    background-color: alpha(@warning_color, 0.15);
+    color: @warning_color;
+}
+
+infobar.error {
+    background-color: alpha(@error_color, 0.15);
+    color: @error_color;
+}
+
+infobar.question {
+    background-color: alpha(@accent_secondary, 0.15);
+    color: @accent_secondary;
+}
+
+/* Dialog */
+dialog {
+    background-color: @bg_color;
+    color: @fg_color;
+}
+
+dialog .dialog-vbox {
+    margin: 8px;
+}
+
+messagedialog {
+    background-color: @bg_color;
+}
+
+messagedialog .titlebar {
+    background-color: @bg_color;
+    color: @fg_color;
+}
+
+messagedialog .dialog-action-area button {
+    border-radius: 8px;
+    min-height: 32px;
+    padding: 6px 16px;
+}
+
+/* Action Bar */
+actionbar {
+    background-color: @bg_color_light;
+    border-top: 1px solid @border_color;
+    padding: 4px 8px;
+}
+
+/* Statusbar */
+statusbar {
+    background-color: @bg_color;
+    color: @fg_color_dim;
+    border-top: 1px solid @border_color;
+    padding: 2px 6px;
+}
+
+/* Paned */
+paned > separator {
+    background-color: @border_color;
+    min-width: 1px;
+    min-height: 1px;
+}
+
+paned > separator:hover {
+    background-color: @accent_color;
+}
+
+/* Frames */
+frame {
+    border: 1px solid @border_color;
+    border-radius: 8px;
+    padding: 2px;
+}
+
+/* Toolbar */
+toolbar {
+    background-color: @headerbar_bg;
+    border: none;
+    padding: 2px;
+}
+
+toolbar button {
+    background-color: transparent;
+    border: none;
+    border-radius: 8px;
+    padding: 4px 8px;
+}
+
+toolbar button:hover {
+    background-color: @button_bg_hover;
+}
+
+/* Separator */
+separator {
+    background-color: @border_color;
+    min-width: 1px;
+    min-height: 1px;
+}
+
+/* Spinner */
+spinner {
+    color: @accent_color;
+}
+
+spinner:disabled {
+    color: @fg_color_dim;
+}
+
+/* Calendar */
+calendar {
+    background-color: @bg_color;
+    color: @fg_color;
+    border-radius: 8px;
+    padding: 4px;
+}
+
+calendar:selected {
+    background-color: @accent_color;
+    color: @selection_fg;
+    border-radius: 50%;
+}
+
+calendar.header {
+    background-color: @bg_color_light;
+    color: @fg_color;
+    border-radius: 8px 8px 0 0;
+}
+
+calendar.button {
+    color: @accent_color;
+    border-radius: 50%;
+}
+
+calendar.button:hover {
+    background-color: @button_bg_hover;
+}
+
+/* Level bar */
+levelbar block {
+    min-height: 6px;
+    border-radius: 3px;
+}
+
+levelbar block.empty {
+    background-color: @bg_color_light;
+}
+
+levelbar block.filled {
+    background-color: @accent_color;
+}
+
+levelbar block.full {
+    background-color: @success_color;
+}
+
+levelbar block.low {
+    background-color: @warning_color;
+}
+
+levelbar block.high {
+    background-color: @accent_color;
+}
+
+/* Color chooser */
+colorswatch {
+    border-radius: 4px;
+    border: 1px solid @border_color;
+}
+
+colorswatch:hover {
+    border-color: @accent_color;
+}
+
+/* Emoji chooser */
+emoji-toolbar {
+    background-color: @bg_color_light;
+    border: none;
+}
+
+emoji-searchbar {
+    background-color: @bg_color_light;
+    border-bottom: 1px solid @border_color;
+}
+
+/* OSD / Notifications */
+notification {
+    background-color: @bg_color_light;
+    color: @fg_color;
+    border: 1px solid @border_color;
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+
+/* Window controls */
+windowcontrols button {
+    min-width: 20px;
+    min-height: 20px;
+    border-radius: 50%;
+    padding: 4px;
+}
+
+windowcontrols button:hover {
+    background-color: @button_bg_hover;
+}
+
+windowcontrols button.close:hover {
+    background-color: @error_color;
+}
+
+windowcontrols button.maximize:hover {
+    background-color: @success_color;
+}
+
+windowcontrols button.minimize:hover {
+    background-color: @warning_color;
+}
+
+/* Rubberband */
+.rubberband,
+rubberband {
+    border: 2px solid @accent_color;
+    background-color: alpha(@accent_color, 0.2);
+}
+
+/* Navigation dots */
+navigation-sidebar {
+    background-color: @bg_color;
+}
+
+/* Links in views */
+.view link,
+.view a {
+    color: @link_color;
+}
+
+.view link:hover,
+.view a:hover {
+    color: @accent_secondary;
+}
+
+/* Glass effect classes */
+.glass {
+    background-color: alpha(@bg_color, 0.85);
+    -backdrop-filter: blur(20px);
+}
+
+.glass-header {
+    background-color: alpha(@headerbar_bg, 0.85);
+    -backdrop-filter: blur(20px);
+}
+
+/* Flat buttons */
+button.flat {
+    background-color: transparent;
+    border: none;
+}
+
+button.flat:hover {
+    background-color: @button_bg_hover;
+}
+
+/* Linked buttons */
+.linked button {
+    border-radius: 0;
+}
+
+.linked button:first-child {
+    border-radius: 8px 0 0 8px;
+}
+
+.linked button:last-child {
+    border-radius: 0 8px 8px 0;
+}
+
+.linked button:only-child {
+    border-radius: 8px;
+}
+
+/* osd elements */
+.osd {
+    background-color: alpha(@bg_color, 0.9);
+    color: @fg_color;
+    border-radius: 12px;
+    padding: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
+/* Panel */
+.panel {
+    background-color: @bg_color;
+    color: @fg_color;
+    border-top: 1px solid @border_color;
+}
+
+/* Monospace font */
+textview monospace,
+text monospace {
+    font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+}
+
+/* Accent color utility */
+.accent { color: @accent_color; }
+.accent-secondary { color: @accent_secondary; }
+.success { color: @success_color; }
+.warning { color: @warning_color; }
+.error { color: @error_color; }
+
+/* Background utility */
+.bg-primary { background-color: @bg_color; }
+.bg-secondary { background-color: @bg_color_light; }
+.bg-tertiary { background-color: @bg_color_lighter; }

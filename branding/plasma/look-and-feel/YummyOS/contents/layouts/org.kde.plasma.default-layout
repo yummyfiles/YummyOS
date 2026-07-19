@@ -1,0 +1,91 @@
+{
+    "org.kde.panel": {
+        "screen": 0,
+        "outputs": [],
+        "order": 0,
+        "alignment": 0,
+        "hiding": "none",
+        "widgetIds": [
+            "app_launcher",
+            "task_manager",
+            "system_tray",
+            "clock",
+            "show_desktop"
+        ],
+        "config": {
+            "thickness": 48,
+            "location": "bottom",
+            "formfactor": 2
+        }
+    },
+    "org.kde.plasma.kickoff": {
+        "id": "app_launcher",
+        "type": "org.kde.plasma.kickoff",
+        "config": {
+            "general": {
+                "icon": "start-here-yummyos",
+                "sortOrder": " alphabetical",
+                "appDescription": true,
+                "appGrid": {
+                    "iconSize": 4,
+                    "columns": 5
+                }
+            },
+            "pageLauncher": {
+                "recentlyUsed": false
+            }
+        }
+    },
+    "org.kde.plasma.icontasks": {
+        "id": "task_manager",
+        "type": "org.kde.plasma.icontasks",
+        "config": {
+            "general": {
+                "launchers": [
+                    "applications:org.kde.dolphin.desktop",
+                    "applications:org.kde.firefox.desktop",
+                    "applications:org.kde.konsole.desktop"
+                ],
+                "showOnlyCurrentScreen": false,
+                "showOnlyCurrentDesktop": false,
+                "showOnlyMinimized": false,
+                "showInPresence": true,
+                "separateLaunchers": false,
+                "maxRowHeight": 64,
+                "highlightWindows": true
+            }
+        }
+    },
+    "org.kde.plasma.systemtray": {
+        "id": "system_tray",
+        "type": "org.kde.plasma.systemtray",
+        "config": {
+            "systemtray": {
+                "pin": false,
+                "extraPanels": []
+            }
+        }
+    },
+    "org.kde.plasma.digitalclock": {
+        "id": "clock",
+        "type": "org.kde.plasma.digitalclock",
+        "config": {
+            "time": {
+                "showSeconds": false,
+                "24hFormat": true
+            },
+            "date": {
+                "enable": true,
+                "format": "shortDate"
+            },
+            "timezone": {
+                "show": "code"
+            }
+        }
+    },
+    "org.kde.plasma.showdesktop": {
+        "id": "show_desktop",
+        "type": "org.kde.plasma.showdesktop",
+        "config": {}
+    }
+}

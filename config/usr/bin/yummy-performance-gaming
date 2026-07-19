@@ -1,0 +1,298 @@
+#!/usr/bin/env bash
+#
+# yummy-performance-gaming - YummyOS Gaming Mode Helper
+# Manages gaming-optimized system state: GameMode, KWin, cgroups, etc.
+#
+
+set -euo pipefail
+
+readonly VERSION="1.0.0"
+readonly LOG_TAG="yummy-gaming"
+readonly GAMING_CGROUP="/sys/fs/cgroup/gaming"
+readonly KWINRC="${HOME}/.config/kwinrc"
+
+log() {
+    logger -t "${LOG_TAG}" "$1" 2>/dev/null || true
+}
+
+die() {
+    log "ERROR: $1" >&2
+    echo "ERROR: $1" >&2
+    exit 1
+}
+
+usage() {
+    cat <<EOF
+yummy-performance-gaming ${VERSION} - Gaming Mode Helper
+
+Usage:
+    yummy-performance-gaming start    Enable gaming optimizations
+    yummy-performance-gaming stop     Disable gaming optimizations
+    yummy-performance-gaming --help   Show this help message
+    yummy-performance-gaming --version Show version
+
+EOF
+    exit 0
+}
+
+apply_sysfs() {
+    local path="$1"
+    local value="$2"
+    if [[ -w "${path}" ]] 2>/dev/null; then
+        echo "${value}" > "${path}" 2>/dev/null || true
+    else
+        pkexec bash -c "echo '${value}' > '${path}'" 2>/dev/null || true
+    fi
+}
+
+read_sysfs() {
+    local path="$1"
+    if [[ -r "${path}" ]] 2>/dev/null; then
+        cat "${path}" 2>/dev/null || echo "N/A"
+    else
+        echo "N/A"
+    fi
+}
+
+optimize_kwin() {
+    log "Optimizing KWin for gaming"
+
+    # Create kwinrc if it does not exist
+    mkdir -p "$(dirname "${KWINRC}")"
+
+    if command -v kwriteconfig5 &>/dev/null; then
+        # Disable blur effect
+        kwriteconfig5 --file kwinrc --group Compositing --key Enabled false 2>/dev/null || true
+        kwriteconfig5 --file kwinrc --group Compositing --key OpenGLIsUnsafe false 2>/dev/null || true
+
+        # Disable blur and contrast effects
+        kwriteconfig5 --file kwinrc --group Effect-blur --key Enabled false 2>/dev/null || true
+        kwriteconfig5 --file kwinrc --group Effect-contrast --key Enabled false 2>/dev/null || true
+
+        # Set direct rendering mode for lowest latency
+        kwriteconfig5 --file kwinrc --group Compositing --key XRender false 2>/dev/null || true
+        kwriteconfig5 --file kwinrc --group Compositing --key OpenGL true 2>/dev/null || true
+
+        # Set latency to minimal
+        kwriteconfig5 --file kwinrc --group Compositing --key LatencyPolicy 1 2>/dev/null || true
+
+        # Maximize render quality for frame pacing
+        kwriteconfig5 --file kwinrc --group Compositing --key RenderTimeEstimation true 2>/dev/null || true
+
+        # Disable desktop effects that cause stutters
+        kwriteconfig5 --file kwinrc --group Effect-desktopswitch --key Enabled false 2>/dev/null || true
+        kwriteconfig5 --file kwinrc --group Effect-presentwindows --key Enabled false 2>/dev/null || true
+        kwriteconfig5 --file kwinrc --group Effect-cube --key Enabled false 2>/dev/null || true
+
+        log "KWin effects disabled for gaming"
+    fi
+
+    # Restart kwin to apply changes
+    if command -v qdbus &>/dev/null; then
+        qdbus org.kde.KWin /KWin reconfigure 2>/dev/null || true
+    elif command -v qdbus6 &>/dev/null; then
+        qdbus6 org.kde.KWin /KWin reconfigure 2>/dev/null || true
+    fi
+}
+
+restore_kwin() {
+    log "Restoring KWin settings"
+
+    if command -v kwriteconfig5 &>/dev/null; then
+        # Re-enable compositing
+        kwriteconfig5 --file kwinrc --group Compositing --key Enabled true 2>/dev/null || true
+
+        # Re-enable effects
+        kwriteconfig5 --file kwinrc --group Effect-blur --key Enabled true 2>/dev/null || true
+        kwriteconfig5 --file kwinrc --group Effect-contrast --key Enabled true 2>/dev/null || true
+        kwriteconfig5 --file kwinrc --group Effect-desktopswitch --key Enabled true 2>/dev/null || true
+        kwriteconfig5 --file kwinrc --group Effect-presentwindows --key Enabled true 2>/dev/null || true
+
+        log "KWin effects restored"
+    fi
+
+    if command -v qdbus &>/dev/null; then
+        qdbus org.kde.KWin /KWin reconfigure 2>/dev/null || true
+    elif command -v qdbus6 &>/dev/null; then
+        qdbus6 org.kde.KWin /KWin reconfigure 2>/dev/null || true
+    fi
+}
+
+enable_gamemode() {
+    log "Enabling GameMode"
+
+    if command -v gamemoded &>/dev/null; then
+        if ! pgrep -x gamemoded &>/dev/null; then
+            pkexec systemctl start gamemoded 2>/dev/null || true
+        fi
+        log "GameMode daemon started"
+    else
+        log "GameMode not installed, skipping"
+    fi
+}
+
+disable_gamemode() {
+    log "Disabling GameMode"
+
+    if command -v gamemoded &>/dev/null; then
+        pkexec systemctl stop gamemoded 2>/dev/null || true
+        log "GameMode daemon stopped"
+    fi
+}
+
+set_cpu_governor() {
+    local governor="$1"
+    for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+        if [[ -f "${cpu}" ]]; then
+            apply_sysfs "${cpu}" "${governor}"
+        fi
+    done
+    log "CPU governor set to ${governor}"
+}
+
+set_cpu_max_frequency() {
+    local cpu_path="/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"
+    if [[ -r "${cpu_path}" ]]; then
+        local max_freq
+        max_freq=$(cat "${cpu_path}")
+        for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq; do
+            if [[ -f "${cpu}" ]]; then
+                apply_sysfs "${cpu}" "${max_freq}"
+            fi
+        done
+        log "CPU max frequency set to ${max_freq} kHz"
+    fi
+}
+
+create_gaming_cgroup() {
+    log "Creating gaming cgroup"
+
+    # Create the gaming cgroup directory
+    if [[ ! -d "${GAMING_CGROUP}" ]]; then
+        pkexec mkdir -p "${GAMING_CGROUP}" 2>/dev/null || true
+    fi
+
+    if [[ -d "${GAMING_CGROUP}" ]]; then
+        # Set CPU weight high for gaming cgroup (10000 = max)
+        pkexec bash -c "echo 10000 > '${GAMING_CGROUP}/cpu.weight'" 2>/dev/null || \
+            pkexec bash -c "echo 100000 > '${GAMING_CGROUP}/cpu.cfs_quota_us'" 2>/dev/null || true
+
+        # Set high I/O priority
+        pkexec bash -c "echo 0 > '${GAMING_CGROUP}/io.latency'" 2>/dev/null || true
+
+        log "Gaming cgroup created with high priority"
+    else
+        log "Failed to create gaming cgroup"
+    fi
+}
+
+destroy_gaming_cgroup() {
+    log "Destroying gaming cgroup"
+
+    if [[ -d "${GAMING_CGROUP}" ]]; then
+        # Move all processes back to root cgroup
+        if [[ -f "${GAMING_CGROUP}/cgroup.procs" ]]; then
+            local pids
+            pids=$(cat "${GAMING_CGROUP}/cgroup.procs" 2>/dev/null || echo "")
+            if [[ -n "${pids}" ]]; then
+                for pid in ${pids}; do
+                    echo "${pid}" > /sys/fs/cgroup/cgroup.procs 2>/dev/null || \
+                        pkexec bash -c "echo '${pid}' > /sys/fs/cgroup/cgroup.procs" 2>/dev/null || true
+                done
+            fi
+        fi
+        pkexec rmdir "${GAMING_CGROUP}" 2>/dev/null || true
+        log "Gaming cgroup destroyed"
+    fi
+}
+
+disable_screen_compositor() {
+    log "Disabling screen compositor effects for gaming"
+    optimize_kwin
+}
+
+restore_screen_compositor() {
+    log "Restoring screen compositor effects"
+    restore_kwin
+}
+
+cmd_start() {
+    echo "Starting gaming mode..."
+    log "=== Starting gaming mode ==="
+
+    # Enable GameMode
+    enable_gamemode
+
+    # Optimize KWin
+    disable_screen_compositor
+
+    # Set CPU to performance mode
+    set_cpu_governor "performance"
+    set_cpu_max_frequency
+
+    # Create gaming cgroup
+    create_gaming_cgroup
+
+    # Disable swap
+    pkexec swapoff -a 2>/dev/null || true
+
+    log "=== Gaming mode started ==="
+    echo "Gaming mode enabled."
+    echo "  - GameMode: active"
+    echo "  - KWin: optimized for low latency"
+    echo "  - CPU: performance governor, max frequency"
+    echo "  - Cgroup: gaming priority group created"
+    echo "  - Swap: disabled"
+}
+
+cmd_stop() {
+    echo "Stopping gaming mode..."
+    log "=== Stopping gaming mode ==="
+
+    # Restore KWin effects
+    restore_screen_compositor
+
+    # Disable GameMode
+    disable_gamemode
+
+    # Restore balanced CPU governor
+    set_cpu_governor "schedutil"
+
+    # Destroy gaming cgroup
+    destroy_gaming_cgroup
+
+    # Re-enable swap
+    pkexec swapon -a 2>/dev/null || true
+
+    log "=== Gaming mode stopped ==="
+    echo "Gaming mode disabled. System restored to balanced profile."
+}
+
+main() {
+    local cmd="${1:-}"
+    shift || true
+
+    case "${cmd}" in
+        start)
+            cmd_start
+            ;;
+        stop)
+            cmd_stop
+            ;;
+        --help|-h)
+            usage
+            ;;
+        --version|-v)
+            echo "yummy-performance-gaming ${VERSION}"
+            exit 0
+            ;;
+        "")
+            usage
+            ;;
+        *)
+            die "Unknown command '${cmd}'. Run 'yummy-performance-gaming --help' for usage."
+            ;;
+    esac
+}
+
+main "$@"

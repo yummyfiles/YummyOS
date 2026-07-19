@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="grad-main" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4CC9F0"/>
+      <stop offset="100%" stop-color="#7B2CBF"/>
+    </linearGradient>
+    <linearGradient id="grad-inner" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5BD3FF"/>
+      <stop offset="100%" stop-color="#9B4DFF"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+    <clipPath id="shield-clip">
+      <path d="M100,10 L175,45 L185,115 L150,180 L50,180 L15,115 L25,45 Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- Outer shield/hexagonal shape with gradient -->
+  <path d="M100,10 L175,45 L185,115 L150,180 L50,180 L15,115 L25,45 Z"
+        fill="url(#grad-main)"
+        filter="url(#shadow)"
+        stroke="none"/>
+
+  <!-- Inner highlight border -->
+  <path d="M100,20 L168,50 L178,112 L146,172 L54,172 L22,112 L32,50 Z"
+        fill="none"
+        stroke="url(#grad-inner)"
+        stroke-width="1.5"
+        opacity="0.6"/>
+
+  <!-- Stylized Y letterform -->
+  <g transform="translate(100,100)" fill="none" stroke="white" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Left branch of Y -->
+    <path d="M-32,-42 L-4,-8"
+          stroke-width="14"
+          stroke="white"
+          fill="none"/>
+    <!-- Right branch of Y -->
+    <path d="M4,-8 L32,-42"
+          stroke-width="14"
+          stroke="white"
+          fill="none"/>
+    <!-- Stem of Y -->
+    <path d="M-4,-8 L-4,42 L0,48 L4,42 L4,-8"
+          stroke-width="0"
+          fill="white"/>
+    <!-- Rounded cap on left branch -->
+    <circle cx="-32" cy="-42" r="7" fill="white"/>
+    <!-- Rounded cap on right branch -->
+    <circle cx="32" cy="-42" r="7" fill="white"/>
+  </g>
+
+  <!-- Subtle accent dot -->
+  <circle cx="100" cy="48" r="3" fill="white" opacity="0.4"/>
+</svg>

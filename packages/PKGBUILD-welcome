@@ -1,0 +1,57 @@
+# Maintainer: YummyOS Team <team@yummyos.org>
+pkgname=yummy-welcome
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="YummyOS Welcome Application - First-run setup wizard and quick start guide"
+arch=('x86_64' 'aarch64')
+url="https://yummyos.org"
+license=('GPL-3.0-or-later')
+depends=(
+    'qt6-base'
+    'qt6-declarative'
+    'qt6-webview'
+    'plasma-framework'
+    'ki18n'
+    'kconfig'
+    'yummyos-branding'
+    'yummyos-scripts'
+)
+makedepends=(
+    'cmake'
+    'extra-cmake-modules'
+    'qt6-tools'
+    'pkg-config'
+)
+provides=('yummy-welcome')
+conflicts=('yummy-welcome-git')
+source=("${url}/releases/${pkgname}-${pkgver}.tar.xz")
+sha256sums=('SKIP')
+
+build() {
+    cd "${srcdir}/${pkgname}-${pkgver}" || cd "${srcdir}"
+    cmake -B build -S . \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DKDE_INSTALL_USE_QT_SYS_PATHS=ON
+    cmake --build build
+}
+
+package() {
+    cd "${srcdir}/${pkgname}-${pkgver}" || cd "${srcdir}"
+    DESTDIR="${pkgdir}" cmake --install build
+
+    # Ensure welcome app autostarts for new users
+    install -Dm644 /dev/null \
+        "${pkgdir}/etc/xdg/autostart/yummy-welcome.desktop"
+    cat > "${pkgdir}/etc/xdg/autostart/yummy-welcome.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=YummyOS Welcome
+Comment=First-run setup wizard for YummyOS
+Exec=/usr/bin/yummy-welcome
+Terminal=false
+Categories=System;
+OnlyShowIn=YummyOS;
+X-YummyOS-autostart-phase=Initialization
+EOF
+}

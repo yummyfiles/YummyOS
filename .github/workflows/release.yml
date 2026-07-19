@@ -1,0 +1,159 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-iso:
+    name: Build Release ISO
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      - name: Install base packages
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm \
+            archiso \
+            git \
+            base-devel
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building release $VERSION from tag $TAG"
+
+      - name: Update profile version
+        run: |
+          sed -i "s/iso_version=.*/iso_version=\"${{ steps.version.outputs.version }}\"/" build/profiledef.sh
+          sed -i "s/iso_label=.*/iso_label=\"YUMMYOS_${{ steps.version.outputs.version }}\"/" build/profiledef.sh
+
+      - name: Build ISO
+        run: |
+          chmod +x scripts/build-iso.sh
+          scripts/build-iso.sh -o out
+
+      - name: Verify ISO
+        run: |
+          chmod +x scripts/verify-build.sh
+          scripts/verify-build.sh
+
+      - name: Generate checksums
+        run: |
+          cd out
+          sha256sum yummyos-*.iso > yummyos-${{ steps.version.outputs.version }}-sha256sum.txt
+          sha512sum yummyos-*.iso > yummyos-${{ steps.version.outputs.version }}-sha512sum.txt
+          echo "Checksums:"
+          cat yummyos-*-sums.txt
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: yummyos-${{ steps.version.outputs.version }}
+          path: |
+            out/yummyos-*.iso
+            out/yummyos-*-sums.txt
+          retention-days: 90
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build-iso
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Download ISO artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: yummyos-${{ steps.version.outputs.version }}
+          path: release-artifacts
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          # Get commits since last tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            echo "Generating notes from $PREV_TAG to ${{ steps.version.outputs.tag }}"
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" "$PREV_TAG"..HEAD)
+          else
+            echo "Generating notes for initial release"
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" HEAD)
+          fi
+
+          # Write release notes
+          cat > release-notes.md << 'HEADER'
+          # YummyOS ${{ steps.version.outputs.tag }}
+
+          ## What's New
+
+          HEADER
+          echo "$CHANGELOG" >> release-notes.md
+          cat >> release-notes.md << 'FOOTER'
+
+          ---
+
+          ## Installation
+
+          1. Download the ISO from the assets below
+          2. Write to a USB drive using [Rufus](https://rufus.ie) or `dd`
+          3. Boot from USB and follow the installer
+
+          ## Verify Download
+
+          Verify the integrity of your download using the included checksums:
+
+          ```bash
+          sha256sum -c yummyos-*-sha256sum.txt
+          ```
+
+          ## Support
+
+          - [Bug Reports](https://github.com/yummyfiles/YummyOS/issues)
+          - [Documentation](https://github.com/yummyfiles/YummyOS/tree/main/docs)
+          FOOTER
+
+          # Replace version placeholder
+          sed -i "s/\${{ steps.version.outputs.tag }}/${{ steps.version.outputs.tag }}/g" release-notes.md
+
+          echo "Release notes:"
+          cat release-notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: YummyOS ${{ steps.version.outputs.tag }}
+          body_path: release-notes.md
+          draft: false
+          prerelease: false
+          files: |
+            release-artifacts/yummyos-*.iso
+            release-artifacts/yummyos-*-sums.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,356 @@
+#!/usr/bin/env bash
+#
+# yummy-theme-apply - YummyOS Theme Application Tool
+# Applies the complete YummyOS desktop theme in one pass.
+#
+
+set -euo pipefail
+
+readonly VERSION="1.0.0"
+readonly LOG_TAG="yummy-theme"
+readonly THEME_DIR="/usr/share/yummyos/branding"
+
+# Defaults
+MODE="dark"
+ACCENT_COLOR=""
+WALLPAPER=""
+
+log() {
+    logger -t "${LOG_TAG}" "$1" 2>/dev/null || true
+}
+
+die() {
+    log "ERROR: $1" >&2
+    echo "ERROR: $1" >&2
+    exit 1
+}
+
+usage() {
+    cat <<EOF
+yummy-theme-apply ${VERSION} - YummyOS Theme Application Tool
+
+Usage:
+    yummy-theme-apply [OPTIONS]
+
+Options:
+    --light                   Use light theme variant
+    --dark                    Use dark theme variant (default)
+    --accent <color>          Set accent color (blue, green, purple, red, orange, teal)
+    --wallpaper <path>        Set wallpaper image path
+    --help                    Show this help message
+    --version                 Show version
+
+Examples:
+    yummy-theme-apply --dark
+    yummy-theme-apply --light --accent teal
+    yummy-theme-apply --accent purple --wallpaper /usr/share/wallpapers/yummy-default.jpg
+
+EOF
+    exit 0
+}
+
+check_display() {
+    if [[ -z "${DISPLAY:-}" ]] && [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
+        die "No display server detected. This tool requires a graphical session."
+    fi
+}
+
+check_kde_tools() {
+    if ! command -v kwriteconfig5 &>/dev/null; then
+        die "kwriteconfig5 not found. This tool requires KDE Plasma."
+    fi
+}
+
+set_color_scheme() {
+    local scheme_name="YummyOS-${MODE}"
+
+    log "Setting KDE color scheme to ${scheme_name}"
+
+    # Copy the color scheme file if it exists
+    local scheme_source="${THEME_DIR}/colors/${scheme_name}.colors"
+    if [[ -f "${scheme_source}" ]]; then
+        local scheme_dest="${HOME}/.local/share/color-schemes/${scheme_name}.colors"
+        mkdir -p "${HOME}/.local/share/color-schemes"
+        cp "${scheme_source}" "${scheme_dest}"
+
+        # Apply the color scheme
+        if command -v plasma-apply-colorscheme &>/dev/null; then
+            plasma-apply-colorscheme "${scheme_name}" 2>/dev/null || true
+        fi
+    else
+        # Use built-in KDE schemes as fallback
+        if [[ "${MODE}" == "dark" ]]; then
+            if command -v plasma-apply-colorscheme &>/dev/null; then
+                plasma-apply-colorscheme "Breeze Dark" 2>/dev/null || true
+            fi
+        else
+            if command -v plasma-apply-colorscheme &>/dev/null; then
+                plasma-apply-colorscheme "Breeze Light" 2>/dev/null || true
+            fi
+        fi
+    fi
+}
+
+set_plasma_theme() {
+    local theme="YummyOS"
+    if [[ "${MODE}" == "dark" ]]; then
+        theme="YummyOS-Dark"
+    else
+        theme="YummyOS-Light"
+    fi
+
+    log "Setting Plasma theme to ${theme}"
+
+    # Check if theme exists
+    if [[ -d "/usr/share/plasma/desktoptheme/${theme}" ]] || \
+       [[ -d "${HOME}/.local/share/plasma/desktoptheme/${theme}" ]]; then
+        kwriteconfig5 --file plasmarc --group Theme --key name "${theme}" 2>/dev/null || true
+    else
+        # Fallback to Breeze
+        if [[ "${MODE}" == "dark" ]]; then
+            kwriteconfig5 --file plasmarc --group Theme --key name "breeze-dark" 2>/dev/null || true
+        else
+            kwriteconfig5 --file plasmarc --group Theme --key name "breeze" 2>/dev/null || true
+        fi
+        log "YummyOS Plasma theme not found, using Breeze fallback"
+    fi
+}
+
+set_kvantum_theme() {
+    local kvantum_theme="YummyOS"
+    if [[ "${MODE}" == "dark" ]]; then
+        kvantum_theme="YummyOS-Dark"
+    else
+        kvantum_theme="YummyOS-Light"
+    fi
+
+    log "Setting Kvantum theme to ${kvantum_theme}"
+
+    if [[ -d "/usr/share/Kvantum/${kvantum_theme}" ]]; then
+        if command -v kvantummanager &>/dev/null; then
+            # Set theme via config file
+            mkdir -p "${HOME}/.config/Kvantum"
+            echo "[General]
+theme=${kvantum_theme}" > "${HOME}/.config/Kvantum/kvantum.conf" 2>/dev/null || true
+        fi
+    else
+        # Fallback to kvantum default
+        mkdir -p "${HOME}/.config/Kvantum"
+        echo "[General]
+theme=kvantum" > "${HOME}/.config/Kvantum/kvantum.conf" 2>/dev/null || true
+        log "YummyOS Kvantum theme not found, using default"
+    fi
+}
+
+set_gtk_theme() {
+    local gtk_theme="YummyOS-${MODE}"
+
+    log "Setting GTK theme to ${gtk_theme}"
+
+    # GTK 3
+    local gtk3_settings="${HOME}/.config/gtk-3.0/settings.ini"
+    mkdir -p "$(dirname "${gtk3_settings}")"
+    if [[ -f "${gtk3_settings}" ]]; then
+        sed -i "s/^gtk-theme-name=.*/gtk-theme-name=${gtk_theme}/" "${gtk3_settings}" 2>/dev/null || true
+    else
+        echo "[Settings]
+gtk-theme-name=${gtk_theme}
+gtk-icon-theme-name=YummyOS
+gtk-cursor-theme-name=YummyOS" > "${gtk3_settings}" 2>/dev/null || true
+    fi
+
+    # GTK 4
+    local gtk4_settings="${HOME}/.config/gtk-4.0/settings.ini"
+    mkdir -p "$(dirname "${gtk4_settings}")"
+    if [[ -f "${gtk4_settings}" ]]; then
+        sed -i "s/^gtk-theme-name=.*/gtk-theme-name=${gtk_theme}/" "${gtk4_settings}" 2>/dev/null || true
+    else
+        echo "[Settings]
+gtk-theme-name=${gtk_theme}
+gtk-icon-theme-name=YummyOS
+gtk-cursor-theme-name=YummyOS" > "${gtk4_settings}" 2>/dev/null || true
+    fi
+}
+
+set_icon_theme() {
+    local icon_theme="YummyOS"
+
+    log "Setting icon theme to ${icon_theme}"
+
+    kwriteconfig5 --file kdeglobals --group KDE --key IconTheme "${icon_theme}" 2>/dev/null || true
+
+    # Also set for GTK
+    local gtk3_settings="${HOME}/.config/gtk-3.0/settings.ini"
+    if [[ -f "${gtk3_settings}" ]]; then
+        sed -i "s/^gtk-icon-theme-name=.*/gtk-icon-theme-name=${icon_theme}/" "${gtk3_settings}" 2>/dev/null || true
+    fi
+}
+
+set_cursor_theme() {
+    local cursor_theme="YummyOS"
+    local cursor_size="24"
+
+    log "Setting cursor theme to ${cursor_theme}"
+
+    kwriteconfig5 --file kcminputrc --group Mouse --key cursorTheme "${cursor_theme}" 2>/dev/null || true
+    kwriteconfig5 --file kcminputrc --group Mouse --key cursorSize "${cursor_size}" 2>/dev/null || true
+
+    # Set XDG cursor
+    mkdir -p "${HOME}/.icons/default"
+    cat > "${HOME}/.icons/default/index.theme" <<THEME
+[Icon Theme]
+Name=Default
+Comment=Default cursor theme
+Inherits=${cursor_theme}
+THEME
+
+    # Set env variables for Wayland
+    local profile_dir="${HOME}/.config/environment.d"
+    mkdir -p "${profile_dir}"
+    cat > "${profile_dir}/yummy-cursor.conf" <<ENV
+XCURSOR_THEME=${cursor_theme}
+XCURSOR_SIZE=${cursor_size}
+ENV
+}
+
+set_wallpaper() {
+    local wallpaper_path="${1:-}"
+
+    if [[ -z "${wallpaper_path}" ]]; then
+        # Use default wallpaper
+        if [[ "${MODE}" == "dark" ]]; then
+            wallpaper_path="/usr/share/wallpapers/YummyOS-Dark/contents/images/1920x1080.png"
+        else
+            wallpaper_path="/usr/share/wallpapers/YummyOS-Light/contents/images/1920x1080.png"
+        fi
+    fi
+
+    if [[ ! -f "${wallpaper_path}" ]]; then
+        # Try fallback
+        wallpaper_path="/usr/share/wallpapers/YummyOS/contents/images/1920x1080.png"
+    fi
+
+    if [[ -f "${wallpaper_path}" ]]; then
+        log "Setting wallpaper to ${wallpaper_path}"
+
+        # Set wallpaper using KDE scripting
+        local script="
+var allDesktops = desktops();
+for (var i = 0; i < allDesktops.length; i++) {
+    var d = allDesktops[i];
+    d.wallpaperPlugin = 'org.kde.image';
+    d.currentConfigGroup = ['Wallpaper', 'org.kde.image', 'General'];
+    d.writeConfig('Image', 'file://${wallpaper_path}');
+}
+"
+        if command -v qdbus &>/dev/null; then
+            qdbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "${script}" 2>/dev/null || true
+        elif command -v qdbus6 &>/dev/null; then
+            qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "${script}" 2>/dev/null || true
+        fi
+    else
+        log "Wallpaper file not found: ${wallpaper_path}"
+        echo "Warning: Wallpaper not found at ${wallpaper_path}" >&2
+    fi
+}
+
+apply_accent_color() {
+    local color="${1:-}"
+
+    if [[ -z "${color}" ]]; then
+        return 0
+    fi
+
+    log "Setting accent color to ${color}"
+
+    case "${color}" in
+        blue)    hex_color="#3daee9" ;;
+        green)   hex_color="#2ecc71" ;;
+        purple)  hex_color="#9b59b6" ;;
+        red)     hex_color="#e74c3c" ;;
+        orange)  hex_color="#e67e22" ;;
+        teal)    hex_color="#1abc9c" ;;
+        *)
+            log "Unknown accent color: ${color}, using default"
+            return 0
+            ;;
+    esac
+
+    # Apply accent color via KDE configuration
+    kwriteconfig5 --file kdeglobals --group WM --key activeBackground "${hex_color}" 2>/dev/null || true
+    kwriteconfig5 --file kdeglobals --group WM --key activeBlend "${hex_color}" 2>/dev/null || true
+}
+
+reload_plasma() {
+    log "Reloading Plasma shell"
+
+    if command -v qdbus &>/dev/null; then
+        qdbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.restartConfiguredShell 2>/dev/null || true
+    elif command -v qdbus6 &>/dev/null; then
+        qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.restartConfiguredShell 2>/dev/null || true
+    fi
+}
+
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --light)
+                MODE="light"
+                shift
+                ;;
+            --dark)
+                MODE="dark"
+                shift
+                ;;
+            --accent)
+                shift
+                ACCENT_COLOR="${1:-}"
+                shift
+                ;;
+            --wallpaper)
+                shift
+                WALLPAPER="${1:-}"
+                shift
+                ;;
+            --help|-h)
+                usage
+                ;;
+            --version|-v)
+                echo "yummy-theme-apply ${VERSION}"
+                exit 0
+                ;;
+            *)
+                die "Unknown option: $1. Run 'yummy-theme-apply --help' for usage."
+                ;;
+        esac
+    done
+}
+
+main() {
+    parse_args "$@"
+
+    check_display
+    check_kde_tools
+
+    echo "Applying YummyOS theme (${MODE} mode)..."
+    log "Applying theme: mode=${MODE}, accent=${ACCENT_COLOR:-default}, wallpaper=${WALLPAPER:-default}"
+
+    set_color_scheme
+    set_plasma_theme
+    set_kvantum_theme
+    set_gtk_theme
+    set_icon_theme
+    set_cursor_theme
+    set_wallpaper "${WALLPAPER}"
+
+    if [[ -n "${ACCENT_COLOR}" ]]; then
+        apply_accent_color "${ACCENT_COLOR}"
+    fi
+
+    reload_plasma
+
+    echo "YummyOS theme applied successfully."
+    log "Theme application complete"
+}
+
+main "$@"

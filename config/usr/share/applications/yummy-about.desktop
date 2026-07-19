@@ -1,0 +1,27 @@
+[Desktop Entry]
+Type=Application
+Name=YummyOS About
+Name[ca]=Quant a YummyOS
+Name[de]=Über YummyOS
+Name[es]=Acerca de YummyOS
+Name[fr]=À propos de YummyOS
+Name[ja]=YummyOSについて
+Name[ko]=YummyOS 정보
+Name[pt_BR]=Sobre o YummyOS
+Name[zh_CN]=关于 YummyOS
+Comment=Show YummyOS version, system information, and credits
+Comment[ca]=Mostra la versió de YummyOS, informació del sistema i crèdits
+Comment[de]=YummyOS-Version, Systeminformationen und Danksagungen anzeigen
+Comment[es]=Mostrar versión de YummyOS, información del sistema y créditos
+Comment[ja]=YummyOSのバージョン、システム情報、クレジットを表示
+Comment[ko]=YummyOS 버전, 시스템 정보 및 크레딧 표시
+Comment[pt_BR]=Exibir versão do YummyOS, informações do sistema e créditos
+Comment[zh_CN]=显示 YummyOS 版本、系统信息和致谢
+Exec=yummy-about
+Icon=yummy-about
+Terminal=true
+TerminalOptions=\mtitle=YummyOS About --window-size=64x24
+Categories=System;Utility;
+Keywords=about;version;system;info;credits;
+StartupNotify=false
+X-KDE-Keywords=about,version,system,info,credits

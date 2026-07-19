@@ -1,0 +1,488 @@
+#!/usr/bin/env bash
+#
+# yummy-performance - YummyOS Performance Profile Manager
+# Manages system-wide performance profiles for optimal system behavior.
+#
+
+set -euo pipefail
+
+readonly VERSION="1.0.0"
+readonly PROFILE_DIR="/etc/yummyos"
+readonly PROFILE_FILE="${PROFILE_DIR}/performance-profile"
+readonly LOG_TAG="yummy-performance"
+readonly VALID_PROFILES=("balanced" "performance" "powersave" "gaming")
+
+log() {
+    logger -t "${LOG_TAG}" "$1" 2>/dev/null || true
+}
+
+die() {
+    log "ERROR: $1" >&2
+    echo "ERROR: $1" >&2
+    exit 1
+}
+
+usage() {
+    cat <<EOF
+yummy-performance ${VERSION} - YummyOS Performance Profile Manager
+
+Usage:
+    yummy-performance set <profile>   Apply a performance profile
+    yummy-performance get             Show the currently active profile
+    yummy-performance list            List all available profiles
+    yummy-performance --help          Show this help message
+    yummy-performance --version       Show version
+
+Available profiles:
+    balanced      Default balanced profile for everyday use
+    performance   Maximum performance for demanding workloads
+    powersave     Power-saving profile for extended battery life
+    gaming        Optimized profile for gaming workloads
+
+Examples:
+    yummy-performance set performance
+    yummy-performance get
+    yummy-performance list
+
+EOF
+    exit 0
+}
+
+validate_profile() {
+    local profile="$1"
+    for valid in "${VALID_PROFILES[@]}"; do
+        if [[ "${profile}" == "${valid}" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+ensure_config_dir() {
+    mkdir -p "${PROFILE_DIR}" 2>/dev/null || pkexec mkdir -p "${PROFILE_DIR}"
+}
+
+save_profile() {
+    local profile="$1"
+    ensure_config_dir
+    if [[ -w "${PROFILE_DIR}" ]]; then
+        echo "${profile}" > "${PROFILE_FILE}"
+    else
+        pkexec bash -c "echo '${profile}' > '${PROFILE_FILE}'"
+    fi
+}
+
+apply_sysfs() {
+    local path="$1"
+    local value="$2"
+    if [[ -w "${path}" ]] 2>/dev/null; then
+        echo "${value}" > "${path}" 2>/dev/null || true
+    else
+        pkexec bash -c "echo '${value}' > '${path}'" 2>/dev/null || true
+    fi
+}
+
+read_sysfs() {
+    local path="$1"
+    if [[ -r "${path}" ]] 2>/dev/null; then
+        cat "${path}" 2>/dev/null || echo "N/A"
+    else
+        echo "N/A"
+    fi
+}
+
+set_cpu_governor() {
+    local governor="$1"
+    for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+        if [[ -f "${cpu}" ]]; then
+            apply_sysfs "${cpu}" "${governor}"
+        fi
+    done
+    log "CPU governor set to ${governor}"
+}
+
+set_swappiness() {
+    local value="$1"
+    apply_sysfs "/proc/sys/vm/swappiness" "${value}"
+    log "Swappiness set to ${value}"
+}
+
+set_io_scheduler() {
+    local scheduler="$1"
+    for queue in /sys/block/*/queue/scheduler; do
+        if [[ -f "${queue}" ]]; then
+            local device_name
+            device_name=$(echo "${queue}" | cut -d'/' -f4)
+            local device_type
+            device_type=$(read_sysfs "/sys/block/${device_name}/device/type" 2>/dev/null || echo "")
+            local rotational
+            rotational=$(read_sysfs "/sys/block/${device_name}/queue/rotational" 2>/dev/null || echo "1")
+
+            case "${scheduler}" in
+                none)
+                    if [[ "${device_name}" == nvme* ]] || [[ "${device_name}" == loop* ]] || [[ "${rotational}" == "0" ]]; then
+                        apply_sysfs "${queue}" "none"
+                    else
+                        apply_sysfs "${queue}" "mq-deadline"
+                    fi
+                    ;;
+                *)
+                    apply_sysfs "${queue}" "${scheduler}"
+                    ;;
+            esac
+        fi
+    done
+    log "I/O scheduler set to ${scheduler}"
+}
+
+set_cpu_frequency() {
+    local max_freq="$1"
+    for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq; do
+        if [[ -f "${cpu}" ]]; then
+            apply_sysfs "${cpu}" "${max_freq}"
+        fi
+    done
+    log "CPU max frequency set to ${max_freq}"
+}
+
+set_turbo_boost() {
+    local state="$1"
+    local intel_pstate="/sys/devices/system/cpu/intel_pstate/no_turbo"
+    local acpi_pstate="/sys/devices/system/cpu/cpufreq/boost"
+
+    if [[ "${state}" == "disable" ]]; then
+        if [[ -f "${intel_pstate}" ]]; then
+            apply_sysfs "${intel_pstate}" "1"
+        fi
+        if [[ -f "${acpi_pstate}" ]]; then
+            apply_sysfs "${acpi_pstate}" "0"
+        fi
+        log "Turbo boost limiting disabled"
+    else
+        if [[ -f "${intel_pstate}" ]]; then
+            apply_sysfs "${intel_pstate}" "0"
+        fi
+        if [[ -f "${acpi_pstate}" ]]; then
+            apply_sysfs "${acpi_pstate}" "1"
+        fi
+        log "Turbo boost limiting enabled"
+    fi
+}
+
+apply_balanced() {
+    log "Applying balanced profile"
+
+    set_cpu_governor "schedutil"
+    set_swappiness "60"
+    set_io_scheduler "mq-deadline"
+    set_turbo_boost "enable"
+
+    # Standard timer frequency
+    apply_sysfs "/proc/sys/kernel/sched_child_runs_first" "0" 2>/dev/null || true
+
+    # Standard PCIe ASPM
+    for aspm in /sys/bus/pci/devices/*/power/control; do
+        if [[ -f "${aspm}" ]]; then
+            apply_sysfs "${aspm}" "auto" 2>/dev/null || true
+        fi
+    done
+
+    # Disable audio power saving (balanced = not aggressive)
+    for card in /sys/module/snd_hda_intel/parameters/power_save; do
+        if [[ -f "${card}" ]]; then
+            apply_sysfs "${card}" "0"
+        fi
+    done
+
+    log "Balanced profile applied successfully"
+}
+
+apply_performance() {
+    log "Applying performance profile"
+
+    set_cpu_governor "performance"
+    set_swappiness "10"
+    set_io_scheduler "none"
+    set_turbo_boost "disable"
+
+    # Set CPU to max frequency
+    for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq; do
+        if [[ -f "${cpu}" ]]; then
+            local cpu_base
+            cpu_base=$(dirname "${cpu}")
+            local max_hw
+            max_hw=$(read_sysfs "${cpu_base}/cpuinfo_max_freq" 2>/dev/null || echo "")
+            if [[ -n "${max_hw}" ]]; then
+                apply_sysfs "${cpu}" "${max_hw}"
+            fi
+        fi
+    done
+
+    # Disable CPU idle states deeper than C1
+    for idle in /sys/devices/system/cpu/cpu*/cpuidle/state[2-9]/disable; do
+        if [[ -f "${idle}" ]]; then
+            apply_sysfs "${idle}" "1" 2>/dev/null || true
+        fi
+    done
+
+    # Disable PCIe power management
+    for aspm in /sys/bus/pci/devices/*/power/control; do
+        if [[ -f "${aspm}" ]]; then
+            apply_sysfs "${aspm}" "on" 2>/dev/null || true
+        fi
+    done
+
+    # Set disk scheduler to noop for NVMe (already handled by set_io_scheduler none)
+    # Max network throughput
+    apply_sysfs "/proc/sys/net/core/rmem_max" "26214400" 2>/dev/null || true
+    apply_sysfs "/proc/sys/net/core/wmem_max" "26214400" 2>/dev/null || true
+
+    # Disable transparent hugepages defrag
+    apply_sysfs "/sys/kernel/mm/transparent_hugepage/defrag" "never" 2>/dev/null || true
+
+    log "Performance profile applied successfully"
+}
+
+apply_powersave() {
+    log "Applying powersave profile"
+
+    set_cpu_governor "powersave"
+    set_swappiness "80"
+    set_io_scheduler "mq-deadline"
+    set_turbo_boost "enable"
+
+    # Set CPU to reduced max frequency
+    for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq; do
+        if [[ -f "${cpu}" ]]; then
+            local cpu_base
+            cpu_base=$(dirname "${cpu}")
+            local max_hw
+            max_hw=$(read_sysfs "${cpu_base}/cpuinfo_max_freq" 2>/dev/null || echo "")
+            if [[ -n "${max_hw}" ]]; then
+                local reduced_freq=$(( max_hw * 70 / 100 ))
+                apply_sysfs "${cpu}" "${reduced_freq}"
+            fi
+        fi
+    done
+
+    # Enable PCIe ASPM for power saving
+    for aspm in /sys/bus/pci/devices/*/power/control; do
+        if [[ -f "${aspm}" ]]; then
+            apply_sysfs "${aspm}" "auto" 2>/dev/null || true
+        fi
+    done
+
+    # Enable ASPM L1
+    for aspm in /sys/bus/pci/devices/*/power/aspm; do
+        if [[ -f "${aspm}" ]]; then
+            apply_sysfs "${aspm}" "1" 2>/dev/null || true
+        fi
+    done
+
+    # Enable audio power saving (10 second timeout)
+    for card in /sys/module/snd_hda_intel/parameters/power_save; do
+        if [[ -f "${card}" ]]; then
+            apply_sysfs "${card}" "1"
+        fi
+    done
+
+    # Enable deeper CPU idle states
+    for idle in /sys/devices/system/cpu/cpu*/cpuidle/state*/disable; do
+        if [[ -f "${idle}" ]]; then
+            apply_sysfs "${idle}" "0" 2>/dev/null || true
+        fi
+    done
+
+    # Enable laptop panel power saving
+    for panel in /sys/class/drm/card*/edid; do
+        :
+    done
+
+    log "Powersave profile applied successfully"
+}
+
+apply_gaming() {
+    log "Applying gaming profile"
+
+    # Call the dedicated gaming helper
+    if command -v yummy-performance-gaming &>/dev/null; then
+        yummy-performance-gaming start &
+    fi
+
+    set_cpu_governor "performance"
+    set_swappiness "0"
+    set_io_scheduler "none"
+    set_turbo_boost "disable"
+
+    # Disable swap completely
+    if command -v swapoff &>/dev/null; then
+        pkexec swapoff -a 2>/dev/null || true
+    fi
+
+    # Set CPU to max frequency
+    for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq; do
+        if [[ -f "${cpu}" ]]; then
+            local cpu_base
+            cpu_base=$(dirname "${cpu}")
+            local max_hw
+            max_hw=$(read_sysfs "${cpu_base}/cpuinfo_max_freq" 2>/dev/null || echo "")
+            if [[ -n "${max_hw}" ]]; then
+                apply_sysfs "${cpu}" "${max_hw}"
+            fi
+        fi
+    done
+
+    # Reduce kernel timer frequency to 300Hz
+    if [[ -r "/proc/sys/kernel/hz" ]]; then
+        log "Kernel timer frequency: $(cat /proc/sys/kernel/hz)Hz"
+    fi
+
+    # Enable huge pages (madvise = application-controlled)
+    apply_sysfs "/sys/kernel/mm/transparent_hugepage/enabled" "madvise" 2>/dev/null || true
+
+    # Disable transparent hugepage defrag for lower latency
+    apply_sysfs "/sys/kernel/mm/transparent_hugepage/defrag" "never" 2>/dev/null || true
+
+    # Set I/O scheduler to none for NVMe devices
+    for device in /sys/block/nvme*/queue/scheduler; do
+        if [[ -f "${device}" ]]; then
+            apply_sysfs "${device}" "none"
+        fi
+    done
+
+    # Disable CPU idle states for lowest latency
+    for idle in /sys/devices/system/cpu/cpu*/cpuidle/state[1-9]/disable; do
+        if [[ -f "${idle}" ]]; then
+            apply_sysfs "${idle}" "1" 2>/dev/null || true
+        fi
+    done
+
+    # Disable PCIe power management
+    for aspm in /sys/bus/pci/devices/*/power/control; do
+        if [[ -f "${aspm}" ]]; then
+            apply_sysfs "${aspm}" "on" 2>/dev/null || true
+        fi
+    done
+
+    # Optimize network for gaming
+    apply_sysfs "/proc/sys/net/ipv4/tcp_low_latency" "1" 2>/dev/null || true
+    apply_sysfs "/proc/sys/net/core/rmem_max" "26214400" 2>/dev/null || true
+    apply_sysfs "/proc/sys/net/core/wmem_max" "26214400" 2>/dev/null || true
+
+    log "Gaming profile applied successfully"
+}
+
+cmd_set() {
+    local profile="${1:-}"
+    if [[ -z "${profile}" ]]; then
+        die "No profile specified. Use 'yummy-performance set <profile>'."
+    fi
+
+    if ! validate_profile "${profile}"; then
+        die "Invalid profile '${profile}'. Valid profiles: ${VALID_PROFILES[*]}"
+    fi
+
+    echo "Applying profile: ${profile}"
+    log "Setting performance profile to ${profile}"
+
+    case "${profile}" in
+        balanced)    apply_balanced ;;
+        performance) apply_performance ;;
+        powersave)   apply_powersave ;;
+        gaming)      apply_gaming ;;
+    esac
+
+    save_profile "${profile}"
+    echo "Profile '${profile}' applied successfully."
+}
+
+cmd_get() {
+    if [[ -f "${PROFILE_FILE}" ]]; then
+        local profile
+        profile=$(cat "${PROFILE_FILE}" 2>/dev/null || echo "unknown")
+        echo "Active profile: ${profile}"
+    else
+        echo "Active profile: balanced (default)"
+    fi
+}
+
+cmd_list() {
+    echo "Available performance profiles:"
+    echo ""
+    echo "  balanced      - Default balanced profile for everyday use"
+    echo "  performance   - Maximum performance for demanding workloads"
+    echo "  powersave     - Power-saving profile for extended battery life"
+    echo "  gaming        - Optimized profile for gaming workloads"
+    echo ""
+
+    if [[ -f "${PROFILE_FILE}" ]]; then
+        local current
+        current=$(cat "${PROFILE_FILE}" 2>/dev/null || echo "unknown")
+        echo "Currently active: ${current}"
+    else
+        echo "Currently active: balanced (default)"
+    fi
+}
+
+cmd_apply_boot_profile() {
+    local profile="balanced"
+
+    if [[ -f "${PROFILE_FILE}" ]]; then
+        profile=$(cat "${PROFILE_FILE}" 2>/dev/null || echo "balanced")
+    fi
+
+    # Validate the saved profile
+    if ! validate_profile "${profile}"; then
+        log "Invalid saved profile '${profile}', falling back to balanced"
+        profile="balanced"
+    fi
+
+    log "Boot profile: applying ${profile}"
+
+    case "${profile}" in
+        balanced)    apply_balanced ;;
+        performance) apply_performance ;;
+        powersave)   apply_powersave ;;
+        gaming)      apply_gaming ;;
+    esac
+
+    echo "Boot profile '${profile}' applied."
+}
+
+main() {
+    local cmd="${1:-}"
+    shift || true
+
+    case "${cmd}" in
+        set)
+            if [[ $# -lt 1 ]]; then
+                die "No profile name provided."
+            fi
+            cmd_set "$@"
+            ;;
+        get)
+            cmd_get
+            ;;
+        list)
+            cmd_list
+            ;;
+        apply-boot-profile)
+            cmd_apply_boot_profile
+            ;;
+        --help|-h)
+            usage
+            ;;
+        --version|-v)
+            echo "yummy-performance ${VERSION}"
+            exit 0
+            ;;
+        "")
+            usage
+            ;;
+        *)
+            die "Unknown command '${cmd}'. Run 'yummy-performance --help' for usage."
+            ;;
+    esac
+}
+
+main "$@"

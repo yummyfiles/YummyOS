@@ -1,0 +1,44 @@
+# Locales enabled by YummyOS
+#
+# DO NOT UNCOMMENT LOCALES NOT LISTED BELOW UNLESS YOU KNOW WHAT YOU ARE DOING.
+# After editing, run `locale-gen` as root to regenerate.
+
+# en_US.UTF-8 is the default locale for YummyOS.
+en_US.UTF-8 UTF-8
+
+# Common English locales
+en_GB.UTF-8 UTF-8
+en_AU.UTF-8 UTF-8
+en_CA.UTF-8 UTF-8
+
+# Western European locales
+de_DE.UTF-8 UTF-8
+fr_FR.UTF-8 UTF-8
+es_ES.UTF-8 UTF-8
+pt_PT.UTF-8 UTF-8
+it_IT.UTF-8 UTF-8
+nl_NL.UTF-8 UTF-8
+sv_SE.UTF-8 UTF-8
+da_DK.UTF-8 UTF-8
+fi_FI.UTF-8 UTF-8
+no_NO.UTF-8 UTF-8
+
+# Central and Eastern European locales
+pl_PL.UTF-8 UTF-8
+cs_CZ.UTF-8 UTF-8
+sk_SK.UTF-8 UTF-8
+hu_HU.UTF-8 UTF-8
+ro_RO.UTF-8 UTF-8
+hr_HR.UTF-8 UTF-8
+sl_SI.UTF-8 UTF-8
+bg_BG.UTF-8 UTF-8
+uk_UA.UTF-8 UTF-8
+el_GR.UTF-8 UTF-8
+
+# Asian locales
+ja_JP.UTF-8 UTF-8
+ko_KR.UTF-8 UTF-8
+zh_CN.UTF-8 UTF-8
+zh_TW.UTF-8 UTF-8
+hi_IN.UTF-8 UTF-8
+th_TH.UTF-8 UTF-8
