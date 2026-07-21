@@ -15,9 +15,6 @@
 ![Last Commit](https://img.shields.io/github/last-commit/yummyfiles/YummyOS?style=for-the-badge)
 
 <br><br>
-
-<img src="https://github-readme-stats.vercel.app/api/pin/?username=yummyfiles&repo=YummyOS&theme=transparent&hide_border=true"/>
-
 </div>
 
 ---
